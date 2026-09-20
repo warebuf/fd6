@@ -1,0 +1,1654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Structure Siege</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#eef1f5; --panel:#ffffff; --panel-2:#f5f7fa; --line:#d7dee7;
+    --text:#141a22; --text-dim:#5b6b80;
+    --p1:#0e8f88; --p1-bg:#e3f7f5;
+    --p2:#c1690a; --p2-bg:#fdf0e2;
+    --danger:#c53c42; --heal:#2f9e52; --trap:#7c4fc4;
+    --equip:#3f6fb0; --special:#8a6d3b;
+    --shadow:0 1px 2px rgba(20,26,34,.07);
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0b0f14; --panel:#121821; --panel-2:#1a2230; --line:#2a3446;
+      --text:#e8edf4; --text-dim:#8fa0b8;
+      --p1:#4fd1c5; --p1-bg:#12302e;
+      --p2:#f0a35a; --p2-bg:#3a2716;
+      --danger:#ff7373; --heal:#7ee08a; --trap:#c79bfa;
+      --equip:#7fb0ff; --special:#e0b989;
+      --shadow:0 1px 3px rgba(0,0,0,.45);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0b0f14; --panel:#121821; --panel-2:#1a2230; --line:#2a3446;
+    --text:#e8edf4; --text-dim:#8fa0b8;
+    --p1:#4fd1c5; --p1-bg:#12302e;
+    --p2:#f0a35a; --p2-bg:#3a2716;
+    --danger:#ff7373; --heal:#7ee08a; --trap:#c79bfa;
+    --equip:#7fb0ff; --special:#e0b989;
+    --shadow:0 1px 3px rgba(0,0,0,.45);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{ margin:0; padding:0; height:100%; overflow:hidden; }
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'IBM Plex Sans', system-ui, sans-serif;
+    display:flex; flex-direction:column;
+  }
+  .mono{ font-family:'IBM Plex Mono', ui-monospace, monospace; }
+  .display{ font-family:'Chakra Petch', system-ui, sans-serif; }
+
+  button{ font-family:inherit; }
+  button:focus-visible, .card:focus-visible, .slot:focus-visible, summary:focus-visible{
+    outline:2px solid var(--p1); outline-offset:2px;
+  }
+
+  /* ---------- Topbar ---------- */
+  .topbar{
+    flex:0 0 auto;
+    background:var(--panel); border-bottom:1px solid var(--line);
+    padding:6px 14px; box-shadow:var(--shadow);
+  }
+  .topbar-inner{
+    max-width:1300px; margin:0 auto; display:flex; align-items:center;
+    gap:10px; flex-wrap:wrap;
+  }
+  .brand{ font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:.95rem; letter-spacing:.02em; white-space:nowrap; }
+  .brand small{ display:none; }
+  .status{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:.72rem; color:var(--text-dim); }
+  .status b{ color:var(--text); font-weight:600; }
+  .pill{
+    border:1px solid var(--line); border-radius:999px; padding:2px 9px;
+    background:var(--panel-2); white-space:nowrap;
+  }
+  .progress-wrap{ width:100px; height:5px; border-radius:999px; background:var(--panel-2); border:1px solid var(--line); overflow:hidden; }
+  .progress-fill{ height:100%; background:linear-gradient(90deg,var(--p1),var(--p2)); width:0%; transition:width .12s linear; }
+  .spacer{ flex:1 1 auto; }
+  .speed-group{ display:flex; gap:4px; border:1px solid var(--line); border-radius:8px; padding:2px; background:var(--panel-2); }
+  .speed-btn{
+    border:none; background:transparent; color:var(--text-dim); font-size:.68rem;
+    padding:3px 7px; border-radius:6px; cursor:pointer;
+  }
+  .speed-btn.active{ background:var(--panel); color:var(--text); box-shadow:var(--shadow); font-weight:600; }
+  .btn{
+    font-weight:600; font-size:.78rem; padding:6px 13px; border-radius:8px;
+    border:1px solid var(--line); background:var(--panel-2); color:var(--text); cursor:pointer;
+  }
+  .btn:hover:not(:disabled){ border-color:var(--p1); }
+  .btn:disabled{ opacity:.5; cursor:default; }
+  .btn.primary{ background:var(--text); color:var(--bg); border-color:var(--text); }
+  .btn.ghost{ background:transparent; }
+  .btn.small{ padding:4px 9px; font-size:.68rem; }
+
+  /* ---------- Layout ---------- */
+  .battlefield{
+    flex:1 1 auto; min-height:0; max-width:1300px; width:100%; margin:0 auto;
+    padding:8px 12px; display:flex; gap:10px;
+  }
+
+  .panel{
+    flex:1 1 0; min-width:0; min-height:0;
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:8px 10px; display:flex; flex-direction:column; gap:5px;
+    border-top:3px solid var(--line); overflow:hidden;
+  }
+  .panel.p1{ border-top-color:var(--p1); }
+  .panel.p2{ border-top-color:var(--p2); }
+
+  .panel-head{ flex:0 0 auto; position:relative; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .panel-title{ font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:.88rem; display:flex; align-items:center; gap:7px; }
+  .dot{ width:9px; height:9px; border-radius:50%; display:inline-block; flex:0 0 auto; }
+  .panel.p1 .dot{ background:var(--p1); } .panel.p2 .dot{ background:var(--p2); }
+  .pile-pills{ display:flex; gap:6px; font-size:.68rem; }
+  .pile-pill{ border:1px solid var(--line); border-radius:6px; padding:2px 7px; background:var(--panel-2); cursor:pointer; color:var(--text-dim); }
+  .pile-pill:hover{ color:var(--text); }
+  .grave-list{
+    position:absolute; top:100%; right:0; margin-top:4px; z-index:15;
+    display:flex; flex-wrap:wrap; gap:4px; max-width:200px;
+    background:var(--panel); border:1px solid var(--line); border-radius:8px;
+    padding:6px; box-shadow:var(--shadow);
+  }
+  .grave-chip{ width:20px; height:20px; display:flex; align-items:center; justify-content:center; border-radius:4px; background:var(--panel-2); border:1px solid var(--line); opacity:.7; font-size:.85rem; }
+
+  .section{ display:flex; flex-direction:column; min-height:0; gap:2px; }
+  .row-label{ flex:0 0 auto; font-size:.6rem; text-transform:uppercase; letter-spacing:.07em; color:var(--text-dim); }
+  .row{ flex:1 1 auto; min-height:0; display:flex; align-items:center; gap:5px; }
+  .sec-structures{ flex:0.85 1 0; }
+  .sec-units{ flex:2 1 0; }
+  .sec-traps{ flex:0.95 1 0; }
+  .sec-hand{ flex:1.7 1 0; }
+  .row.hand-row{ overflow-x:auto; overflow-y:hidden; justify-content:flex-start; }
+  .row.zone-row{ overflow-x:auto; overflow-y:hidden; justify-content:flex-start; }
+
+  /* structures */
+  .structure{ height:100%; max-height:78px; aspect-ratio:.85; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; }
+  .structure-shape{
+    position:relative; height:62%; aspect-ratio:1;
+    clip-path:polygon(50% 0%, 100% 35%, 82% 100%, 18% 100%, 0% 35%);
+    background:var(--panel-2); overflow:hidden; border:1px solid var(--line);
+  }
+  .panel.p1 .structure-fill{ background:var(--p1); }
+  .panel.p2 .structure-fill{ background:var(--p2); }
+  .structure-fill{ position:absolute; left:0; right:0; bottom:0; transition:height .3s ease; }
+  .structure.dead .structure-shape{ opacity:.3; }
+  .structure-hp{ font-size:clamp(7px,1.15vh,10px); color:var(--text-dim); white-space:nowrap; }
+  .structure.dead .structure-hp{ color:var(--danger); font-weight:600; }
+
+  /* slots + cards */
+  .slot{
+    height:100%; max-height:98px; aspect-ratio:.72; border-radius:8px; border:1.5px dashed var(--line);
+    display:flex; align-items:center; justify-content:center; color:var(--text-dim);
+    font-size:1.1rem; cursor:default; background:var(--panel-2); flex:0 0 auto;
+  }
+  .slot.trap-slot{ max-height:86px; }
+  .slot.valid-target{ border-color:var(--p1); background:var(--p1-bg); cursor:pointer; color:var(--p1); }
+  .panel.p2 .slot.valid-target{ border-color:var(--p2); background:var(--p2-bg); color:var(--p2); }
+
+  .card{
+    height:100%; max-height:98px; aspect-ratio:.72; flex:0 0 auto; border-radius:8px; border:1.5px solid var(--line);
+    background:var(--panel); padding:4% 3%; display:flex; flex-direction:column;
+    align-items:center; justify-content:flex-start; gap:2%; text-align:center; cursor:pointer; position:relative;
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .card.trap-card{ max-height:86px; }
+  .card.cattack{ border-top:3px solid var(--danger); }
+  .card.cheal{ border-top:3px solid var(--heal); }
+  .card.ctrap{ border-top:3px solid var(--trap); }
+  .card.cequip{ border-top:3px solid var(--equip); }
+  .card.cspecial{ border-top:3px solid var(--special); }
+  .card .icon{ font-size:clamp(11px,2vh,18px); line-height:1; }
+  .card .name{ font-size:clamp(7px,1.35vh,10.5px); font-weight:600; line-height:1.1; }
+  .card .stat{ font-size:clamp(6px,1.05vh,9px); color:var(--text-dim); line-height:1.15; }
+  .card.selectable:hover{ transform:translateY(-3px); box-shadow:var(--shadow); }
+  .card.is-selected{ transform:translateY(-5px); box-shadow:0 3px 10px rgba(0,0,0,.15); }
+  .panel.p1 .card.is-selected{ border-color:var(--p1); box-shadow:0 0 0 2px var(--p1-bg), 0 3px 10px rgba(0,0,0,.1); }
+  .panel.p2 .card.is-selected{ border-color:var(--p2); box-shadow:0 0 0 2px var(--p2-bg), 0 3px 10px rgba(0,0,0,.1); }
+  .card.placed{ cursor:pointer; }
+  .card.dim{ opacity:.55; cursor:default; }
+  .card.valid-target{ box-shadow:0 0 0 2px var(--p1) inset; }
+  .panel.p2 .card.valid-target{ box-shadow:0 0 0 2px var(--p2) inset; }
+  .equip-badge{
+    position:absolute; top:2px; right:2px; width:14px; height:14px; border-radius:50%;
+    background:var(--equip); color:#fff; font-size:9px; display:flex; align-items:center;
+    justify-content:center; line-height:1; z-index:2;
+  }
+
+  .hp-bar{ width:100%; height:3px; border-radius:999px; background:var(--panel-2); overflow:hidden; margin-top:1px; flex:0 0 auto; }
+  .hp-fill{ height:100%; background:var(--heal); transition:width .2s ease; }
+  .hp-fill.low{ background:var(--danger); }
+  .charge-bar{ width:100%; height:2.5px; border-radius:999px; background:var(--panel-2); overflow:hidden; flex:0 0 auto; }
+  .panel.p1 .charge-fill{ background:var(--p1); }
+  .panel.p2 .charge-fill{ background:var(--p2); }
+  .charge-fill{ height:100%; width:0%; }
+
+  /* center column */
+  .center-col{ flex:0 0 clamp(170px,20vw,240px); min-height:0; display:flex; flex-direction:column; gap:4px; }
+  .center-label{
+    flex:0 0 auto; text-align:center; font-family:'Chakra Petch',sans-serif; font-size:.68rem;
+    color:var(--text-dim); letter-spacing:.15em; padding-bottom:2px; border-bottom:1px solid var(--line);
+  }
+
+  /* log */
+  .log-panel{
+    flex:1 1 auto; min-height:0;
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:8px 10px; display:flex; flex-direction:column; gap:4px;
+  }
+  .log-head{ flex:0 0 auto; display:flex; justify-content:space-between; align-items:center; font-size:.66rem; text-transform:uppercase; letter-spacing:.07em; color:var(--text-dim); }
+  .log-body{ flex:1 1 auto; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:3px; font-size:.72rem; }
+  .log-line{ padding:1px 0; }
+  .log-line.attack{ color:var(--danger); }
+  .log-line.heal{ color:var(--heal); }
+  .log-line.trap{ color:var(--trap); font-weight:600; }
+  .log-line.destroy{ color:var(--text-dim); font-style:italic; }
+  .log-line.meta{ color:var(--text-dim); border-top:1px dashed var(--line); padding-top:4px; margin-top:2px; }
+  .log-line.win{ color:var(--text); font-weight:700; }
+  .log-line .t{ color:var(--text-dim); margin-right:4px; }
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(11,15,20,.55); display:flex;
+    align-items:center; justify-content:center; z-index:50; padding:16px;
+  }
+  .overlay-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:28px 24px; text-align:center; max-width:340px; box-shadow:0 10px 40px rgba(0,0,0,.3);
+  }
+  .overlay-card h2{ font-family:'Chakra Petch',sans-serif; margin:0 0 6px; font-size:1.4rem; }
+  .overlay-card p{ color:var(--text-dim); margin:0 0 16px; font-size:.85rem; }
+
+  [hidden]{ display:none !important; }
+
+  @media (max-width:760px){
+    html,body{ overflow-y:auto; }
+    .battlefield{ flex-direction:column; overflow-y:auto; }
+    .panel{ flex:0 0 auto; max-height:none; }
+    .section{ min-height:120px; }
+    .center-col{ flex:0 0 auto; order:3; height:160px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">Structure Siege<small>hotseat TCG battle-sim prototype</small></div>
+    <div class="status">
+      <span class="pill">Round <b id="roundLabel">1</b></span>
+      <span class="pill" id="phasePill">Phase: <b id="phaseLabel">Setup</b></span>
+      <span class="pill mono" id="tickPill" hidden>Tick <b id="tickLabel">0</b>/60</span>
+      <div class="progress-wrap" id="progressWrap" hidden><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="speed-group" aria-label="Simulation speed">
+      <button class="speed-btn" data-speed="normal">Normal</button>
+      <button class="speed-btn" data-speed="fast">Fast</button>
+      <button class="speed-btn" data-speed="instant">Instant</button>
+      <button class="speed-btn" data-speed="step">Step</button>
+    </div>
+    <button class="btn primary" id="mainActionBtn">Reveal &amp; Simulate</button>
+    <button class="btn ghost small" id="resetBtn">Reset</button>
+  </div>
+</header>
+
+<div class="battlefield">
+  <div class="panel p1" id="panel-0">
+    <div class="panel-head">
+      <div class="panel-title"><span class="dot"></span><span id="name-0"></span></div>
+      <div class="pile-pills">
+        <span class="pile-pill mono" id="res-0"></span>
+        <span class="pile-pill mono" id="deck-0"></span>
+        <span class="pile-pill mono" id="grave-0"></span>
+      </div>
+      <div id="graveList-0" class="grave-list" hidden></div>
+    </div>
+    <div class="section sec-structures">
+      <div class="row-label">Structures</div>
+      <div class="row" id="structures-0"></div>
+    </div>
+    <div class="section sec-units">
+      <div class="row-label">Units</div>
+      <div class="row" id="units-0"></div>
+    </div>
+    <div class="section sec-traps">
+      <div class="row-label">Traps / Field</div>
+      <div class="row zone-row" id="traps-0"></div>
+    </div>
+    <div class="section sec-hand">
+      <div class="row-label">Hand</div>
+      <div class="row hand-row" id="hand-0"></div>
+    </div>
+  </div>
+
+  <div class="center-col">
+    <div class="center-label">Front Line</div>
+    <div class="log-panel">
+      <div class="log-head"><span>Battle Log</span><span id="logCount">0 events</span></div>
+      <div class="log-body" id="logBody"></div>
+    </div>
+  </div>
+
+  <div class="panel p2" id="panel-1">
+    <div class="panel-head">
+      <div class="panel-title"><span class="dot"></span><span id="name-1"></span></div>
+      <div class="pile-pills">
+        <span class="pile-pill mono" id="res-1"></span>
+        <span class="pile-pill mono" id="deck-1"></span>
+        <span class="pile-pill mono" id="grave-1"></span>
+      </div>
+      <div id="graveList-1" class="grave-list" hidden></div>
+    </div>
+    <div class="section sec-structures">
+      <div class="row-label">Structures</div>
+      <div class="row" id="structures-1"></div>
+    </div>
+    <div class="section sec-units">
+      <div class="row-label">Units</div>
+      <div class="row" id="units-1"></div>
+    </div>
+    <div class="section sec-traps">
+      <div class="row-label">Traps / Field</div>
+      <div class="row zone-row" id="traps-1"></div>
+    </div>
+    <div class="section sec-hand">
+      <div class="row-label">Hand</div>
+      <div class="row hand-row" id="hand-1"></div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="overlay-card">
+    <h2 id="overlayTitle">Player 1 Wins</h2>
+    <p id="overlaySub">All of Player 2's structures have fallen.</p>
+    <button class="btn primary" id="overlayNewGame">New Game</button>
+  </div>
+</div>
+
+<div class="overlay" id="choiceOverlay" hidden>
+  <div class="overlay-card">
+    <h2 id="choiceTitle">Choice</h2>
+    <p id="choiceMessage"></p>
+    <div id="choiceOptions" style="display:flex; flex-direction:column; gap:8px;"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var CARD_DEFS = {
+    attacker: { key:'attacker', type:'unit', unitType:'attacker', name:'Striker', icon:'⚔', power:10, hp:20, cooldown:20,
+      effect:'Every 20 ticks, hits the nearest enemy unit, or a structure if none remain, for 10.' },
+    healer:   { key:'healer',   type:'unit', unitType:'healer',   name:'Medic',   icon:'✚', heal:10,  hp:15, cooldown:20,
+      effect:'Every 20 ticks, heals whichever own structure or unit is most wounded (by %) for 10.' },
+    mirror:   { key:'mirror',   type:'trap',                      name:'Mirror Wall', icon:'◈',
+      effect:'The first time an enemy attack lands on your side, negates it and destroys every enemy Striker.' },
+
+    gravedigger:  { key:'gravedigger',  type:'unit', unitType:'special', name:'Gravedigger',  icon:'Ω', hp:16, cooldown:20, startCharges:1, usesCharges:true,
+      effect:'1 charge. When spent, fires once for every card in your graveyard, 4 damage each.' },
+    undertaker:   { key:'undertaker',   type:'unit', unitType:'special', name:'Undertaker',   icon:'⛧', hp:14, cooldown:20, usesCharges:true,
+      effect:'Gains 1 charge whenever one of your units dies. Spend 2: return a unit card from your graveyard to hand.' },
+    predator:     { key:'predator',     type:'unit', unitType:'attacker', name:'Predator',    icon:'♦', power:16, hp:18, cooldown:20,
+      effect:'Powerful attacker (16 power). Destroys itself if your Resources ever fall below 3.' },
+    extortionist: { key:'extortionist', type:'unit', unitType:'passive', name:'Extortionist', icon:'¤', hp:14, cooldown:Infinity,
+      effect:'Whenever the opponent activates a trap, continuous, or special ability, they pay you 1 Resource.' },
+    bodyguard:    { key:'bodyguard',    type:'unit', unitType:'passive', name:'Bodyguard',    icon:'⛨', hp:22, cooldown:Infinity,
+      effect:'May redirect an attack aimed at another of your units or structures onto itself instead.' },
+    scavenger:    { key:'scavenger',    type:'unit', unitType:'passive', name:'Scavenger',    icon:'↻', hp:15, cooldown:Infinity,
+      effect:'Whenever any unit dies (either side), may take its unclaimed equip.' },
+    parasite:     { key:'parasite',     type:'unit', unitType:'special', name:'Parasite',     icon:'☣', hp:8,  cooldown:20, usesCharges:true,
+      effect:'Attaches to another of your units. Mirrors every charge that unit gains from then on.' },
+    martyr:       { key:'martyr',       type:'unit', unitType:'attacker', name:'Martyr',      icon:'✟', power:9, hp:12, cooldown:20,
+      effect:'Weak attacker (9 power). If destroyed by the opponent, gives another of your units 2 charges.' },
+    loadedgun:    { key:'loadedgun',    type:'unit', unitType:'special', name:'Loaded Gun',   icon:'☍', hp:10, cooldown:20, startCharges:3, usesCharges:true,
+      effect:'3 charges. Spends 1 each cycle to deal 2 damage. Destroys itself at 0 charges.' },
+    mimic:        { key:'mimic',        type:'unit', unitType:'special', name:'Mimic',        icon:'❖', hp:12, cooldown:20, startCharges:1, usesCharges:true,
+      effect:"1 charge. Spend it to copy and immediately use another of your unit's action." },
+
+    donation:          { key:'donation',          type:'trap', name:'Donation',           icon:'☞',
+      effect:"The first time you're attacked, gives your weakest unit to the opponent's board." },
+    liquidator:        { key:'liquidator',        type:'trap', name:'Liquidator',         icon:'⚗',
+      effect:"The first time you're attacked, destroys your strongest unit to convert its HP/charges/equip into Resources." },
+    mutualdestruction: { key:'mutualdestruction', type:'trap', name:'Mutual Destruction', icon:'⇄',
+      effect:"The first time you're attacked, you and the opponent each pick a unit to swap control of, then both attack." },
+    standoff:          { key:'standoff',          type:'trap', name:'Standoff',           icon:'⚖',
+      effect:"The first time you're attacked, both sides bid Resources; the higher bid draws 2 cards, both pay." },
+    repossess:         { key:'repossess',         type:'trap', name:'Repossess',          icon:'⇦',
+      effect:"The first time you're attacked, reclaims a unit you originally owned from the opponent's board." },
+    lastwill:          { key:'lastwill',          type:'trap', name:"Last Will",          icon:'☠',
+      effect:'When one of your units would die, choose: save it at 1 HP, or let it die and draw 2 cards.' },
+    hijack:            { key:'hijack',            type:'trap', name:'Hijack',             icon:'⚡',
+      effect:"When the opponent activates a charge ability, spend 1 of your charges to redirect it onto their own unit." },
+    cannibalize:       { key:'cannibalize',       type:'trap', name:'Cannibalize',        icon:'⌇',
+      effect:"The first time you're attacked, destroys your weakest unit to fully transfer its HP and charges to your strongest." },
+
+    deathless:       { key:'deathless',       type:'equip', name:'Deathless',           icon:'♞',
+      effect:'Equip. Destroys itself instead of letting the equipped unit die, once.' },
+    veteranstandard: { key:'veteranstandard', type:'equip', name:"Veteran's Standard",  icon:'⚑',
+      effect:"Equip. Equipped unit's attacks gain +1 power for every unit you've summoned this game." },
+    battery:         { key:'battery',         type:'equip', name:'Battery',             icon:'⎔',
+      effect:"Equip. Stores up to 3 of the equipped unit's charges; on death, dumps them into another unit." },
+    deadmanswitch:   { key:'deadmanswitch',   type:'equip', name:"Dead Man's Switch",   icon:'☢',
+      effect:'Equip. When the equipped unit dies, it immediately acts once more for free.' },
+    inheritance:     { key:'inheritance',     type:'equip', name:'Inheritance',         icon:'⚱',
+      effect:'Equip. When the equipped unit dies, moves itself (and its stored charges) to another of your units.' },
+
+    blackbox: { key:'blackbox', type:'continuous', name:'Black Box', icon:'▣',
+      effect:'Continuous. Gains a charge whenever one of your cards dies. At 3 charges, replays your last attack or heal.' }
+  };
+  var DECK_RECIPE = [
+    ['attacker',6], ['healer',4], ['mirror',2],
+    ['gravedigger',1], ['undertaker',1], ['predator',1], ['extortionist',1], ['bodyguard',1],
+    ['scavenger',1], ['parasite',1], ['martyr',1], ['loadedgun',1], ['mimic',1],
+    ['donation',1], ['liquidator',1], ['mutualdestruction',1], ['standoff',1], ['repossess',1],
+    ['lastwill',1], ['hijack',1], ['cannibalize',1],
+    ['deathless',1], ['veteranstandard',1], ['battery',1], ['deadmanswitch',1], ['inheritance',1],
+    ['blackbox',2]
+  ];
+  var STRUCTURE_HP = 30, STRUCTURE_COUNT = 3, UNIT_SLOTS = 5, TRAP_SLOTS = 5, CONTINUOUS_SLOTS = 2;
+  var INITIAL_HAND = 6, DRAW_PER_ROUND = 3, SIM_TICKS = 60;
+  var SPEED_MS = { normal:160, fast:45, instant:0 };
+
+  var cardUid = 0;
+  function makeCard(key){
+    var def = CARD_DEFS[key];
+    var c = { uid: 'c' + (cardUid++) };
+    for (var k in def) c[k] = def[k];
+    return c;
+  }
+  function shuffle(arr){
+    for (var i = arr.length - 1; i > 0; i--){
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+    }
+    return arr;
+  }
+  function buildDeck(){
+    var deck = [];
+    DECK_RECIPE.forEach(function(pair){
+      for (var i = 0; i < pair[1]; i++) deck.push(makeCard(pair[0]));
+    });
+    return shuffle(deck);
+  }
+  function newPlayer(name){
+    return {
+      name: name,
+      deck: buildDeck(),
+      hand: [],
+      grave: [],
+      resources: 5,
+      summonCount: 0,
+      lastAction: null,
+      structures: Array.from({length:STRUCTURE_COUNT}, function(){ return {hp:STRUCTURE_HP, maxHp:STRUCTURE_HP, alive:true}; }),
+      units: new Array(UNIT_SLOTS).fill(null),
+      traps: new Array(TRAP_SLOTS).fill(null),
+      continuous: new Array(CONTINUOUS_SLOTS).fill(null)
+    };
+  }
+  function drawCards(p, n){
+    for (var i = 0; i < n; i++){
+      if (p.deck.length === 0) return;
+      p.hand.push(p.deck.pop());
+    }
+  }
+
+  var state = null;
+  var lastHandUids = [new Set(), new Set()];
+  var reduceMotion = false;
+  try { reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e){}
+
+  function animateDraw(cardEl, side, order){
+    if (reduceMotion || !cardEl.animate) return;
+    var deckEl = document.getElementById('deck-' + side);
+    if (!deckEl) return;
+    var deckRect = deckEl.getBoundingClientRect();
+    var cardRect = cardEl.getBoundingClientRect();
+    var dx = (deckRect.left + deckRect.width / 2) - (cardRect.left + cardRect.width / 2);
+    var dy = (deckRect.top + deckRect.height / 2) - (cardRect.top + cardRect.height / 2);
+    try {
+      cardEl.animate([
+        { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(.3) rotate(-10deg)', opacity: 0, offset: 0 },
+        { transform: 'translate(' + (dx * 0.12) + 'px,' + (dy * 0.12) + 'px) scale(1.06) rotate(3deg)', opacity: 1, offset: 0.72 },
+        { transform: 'translate(0,0) scale(1) rotate(0deg)', opacity: 1, offset: 1 }
+      ], { duration: 420, delay: order * 70, easing: 'cubic-bezier(.22,.85,.28,1)', fill: 'both' });
+    } catch (e){}
+  }
+
+  function freshState(){
+    var s = {
+      round: 1, phase: 'setup', tick: 0, speed: 'normal',
+      selected: null, winner: null, log: [], graveOpen: [false,false],
+      pendingChoice: null, tickQueue: [], tickQueuePos: 0,
+      players: [newPlayer('Player 1'), newPlayer('Player 2')]
+    };
+    s.players.forEach(function(p){ drawCards(p, INITIAL_HAND); });
+    return s;
+  }
+
+  function addLog(text, type){
+    state.log.push({ text:text, type:type });
+    if (state.log.length > 300) state.log.shift();
+  }
+
+  // ---------- Simulation ----------
+  var simTimer = null;
+
+  function startSimulation(){
+    if (state.phase !== 'setup') return;
+    state.phase = 'simulating';
+    state.tick = 0;
+    state.selected = null;
+    addLog('Round ' + state.round + ': boards revealed. Battle begins.', 'meta');
+    render();
+    scheduleTick();
+  }
+
+  function scheduleTick(){
+    clearTimeout(simTimer);
+    if (state.speed === 'step') return; // manual mode: wait for a Step click instead of a timer
+    simTimer = setTimeout(runTick, SPEED_MS[state.speed]);
+  }
+
+  function buildTickQueue(){
+    var t = ++state.tick;
+    var queue = [];
+    for (var side = 0; side < 2; side++){
+      var player = state.players[side];
+      for (var i = 0; i < player.units.length; i++){
+        var u = player.units[i];
+        if (u && u.alive && isFinite(u.card.cooldown) && t % u.card.cooldown === 0) queue.push({ side: side, idx: i });
+      }
+    }
+    for (var side2 = 0; side2 < 2; side2++){
+      var player2 = state.players[side2];
+      for (var j = 0; j < player2.continuous.length; j++){
+        var cc = player2.continuous[j];
+        if (cc && cc.card.key === 'blackbox' && (cc.charges || 0) >= 3) queue.push({ side: side2, continuousIdx: j });
+      }
+    }
+    state.tickQueue = queue;
+    state.tickQueuePos = 0;
+  }
+
+  function processQueueItem(item){
+    if (item.continuousIdx !== undefined) return resolveBlackBox(item.side, item.continuousIdx);
+    var u = state.players[item.side].units[item.idx];
+    if (!u || !u.alive) return undefined;
+    return performAction(item.side, item.idx, u, state.tick);
+  }
+
+  function runTick(){
+    buildTickQueue();
+    drainQueue();
+  }
+
+  // Drains the current tick's action queue. In auto speeds it runs to completion (or until a
+  // choice pauses it); in 'step' speed it processes exactly one queued action per call, then
+  // still performs the same end-of-queue bookkeeping (game over / next-tick scheduling) so the
+  // Step button and the timer-driven path share one source of truth for "what happens next".
+  function drainQueue(){
+    while (state.tickQueuePos < state.tickQueue.length){
+      var item = state.tickQueue[state.tickQueuePos++];
+      var result = processQueueItem(item);
+      if (state.phase === 'gameOver'){ render(); return; }
+      if (result === 'PAUSED'){ render(); return; }
+      if (state.speed === 'step') break;
+    }
+    render();
+    if (state.phase === 'gameOver') return;
+    if (state.tickQueuePos >= state.tickQueue.length && state.tick >= SIM_TICKS){ endSimulation(); return; }
+    if (state.tickQueuePos < state.tickQueue.length) return; // step mode paused mid-queue; wait for next click
+    scheduleTick();
+  }
+
+  function stepOnce(){
+    if (state.phase !== 'simulating' || state.pendingChoice) return;
+    if (state.tickQueue && state.tickQueuePos < state.tickQueue.length){
+      drainQueue();
+      return;
+    }
+    while (state.phase === 'simulating' && !state.pendingChoice){
+      if (state.tick >= SIM_TICKS){ endSimulation(); return; }
+      buildTickQueue();
+      if (state.tickQueue.length > 0){ drainQueue(); return; }
+      render(); // keep the tick counter live while silently skipping ticks with no scheduled actions
+    }
+  }
+
+  function pauseForChoice(config){
+    state.pendingChoice = config;
+    render();
+  }
+
+  function consumeTrap(side, idx){
+    var p = state.players[side];
+    if (!p.traps[idx]) return;
+    p.grave.push(p.traps[idx].card);
+    p.traps[idx] = null;
+  }
+
+  function findOtherLivingUnit(player, excludeIdx){
+    for (var i = 0; i < player.units.length; i++){
+      if (i !== excludeIdx && player.units[i] && player.units[i].alive) return i;
+    }
+    return -1;
+  }
+
+  function findWeakestUnit(player, excludeIdx){
+    var bestIdx = -1, bestPct = Infinity;
+    player.units.forEach(function(u, i){
+      if (i === excludeIdx || !u || !u.alive) return;
+      var pct = u.hp / u.maxHp;
+      if (pct < bestPct){ bestPct = pct; bestIdx = i; }
+    });
+    return bestIdx;
+  }
+
+  function findStrongestUnit(player, excludeIdx){
+    var bestIdx = -1, bestHp = -1;
+    player.units.forEach(function(u, i){
+      if (i === excludeIdx || !u || !u.alive) return;
+      if (u.hp > bestHp){ bestHp = u.hp; bestIdx = i; }
+    });
+    return bestIdx;
+  }
+
+  function findLivingScavengerNoEquip(preferredSide){
+    var order = [preferredSide, 1 - preferredSide];
+    for (var oi = 0; oi < order.length; oi++){
+      var s = order[oi], p = state.players[s];
+      for (var i = 0; i < p.units.length; i++){
+        var uu = p.units[i];
+        if (uu && uu.alive && uu.card.key === 'scavenger' && !uu.equip) return { side: s, idx: i };
+      }
+    }
+    return null;
+  }
+
+  function findLivingBodyguardSlot(player){
+    for (var i = 0; i < player.units.length; i++){
+      if (player.units[i] && player.units[i].alive && player.units[i].card.key === 'bodyguard') return i;
+    }
+    return -1;
+  }
+
+  function chargeExtortion(activatingSide){
+    var other = 1 - activatingSide;
+    var op = state.players[other];
+    var count = 0;
+    op.units.forEach(function(u){ if (u && u.alive && u.card.key === 'extortionist') count++; });
+    for (var i = 0; i < count; i++){
+      state.players[activatingSide].resources = Math.max(0, state.players[activatingSide].resources - 1);
+      op.resources += 1;
+    }
+  }
+
+  function gainCharges(side, slotIdx, amount){
+    var p = state.players[side];
+    var u = p.units[slotIdx];
+    if (!u) return;
+    u.charges = (u.charges || 0) + amount;
+    p.units.forEach(function(par, i){
+      if (par && par.alive && par.card.key === 'parasite' && par.hostSlot === slotIdx) par.charges = (par.charges || 0) + amount;
+    });
+    if (u.equip && u.equip.card.key === 'battery') u.equip.storedCharges = Math.min(3, (u.equip.storedCharges || 0) + amount);
+  }
+
+  // ---------- Death handling ----------
+  function destroyUnit(side, idx, opts){
+    opts = opts || {};
+    var p = state.players[side];
+    var u = p.units[idx];
+    if (!u) return;
+    var card = u.card;
+
+    if (u.equip && u.equip.card.key === 'deathless'){
+      p.grave.push(u.equip.card);
+      u.equip = null;
+      addLog(p.name + "'s Deathless shatters, saving " + card.name + '.', 'trap');
+      return;
+    }
+    if (u.equip && u.equip.card.key === 'inheritance'){
+      var heirIdx = findOtherLivingUnit(p, idx);
+      if (heirIdx !== -1){
+        p.units[heirIdx].equip = u.equip;
+        addLog(u.equip.card.name + ' passes on to ' + p.units[heirIdx].card.name + '.', 'meta');
+      } else {
+        p.grave.push(u.equip.card);
+      }
+      u.equip = null;
+    }
+    if (u.equip && u.equip.card.key === 'deadmanswitch'){
+      var dmsCard = u.equip.card;
+      u.equip = null;
+      forcePerformAction(side, idx, u, state.tick);
+      p.grave.push(dmsCard);
+    }
+    if (u.equip && u.equip.card.key === 'battery'){
+      var stored = u.equip.storedCharges || 0;
+      var batCard = u.equip.card;
+      u.equip = null;
+      if (stored > 0){
+        var otherIdx = findOtherLivingUnit(p, idx);
+        if (otherIdx !== -1) p.units[otherIdx].charges = (p.units[otherIdx].charges || 0) + stored;
+      }
+      p.grave.push(batCard);
+    }
+    if (u.equip){
+      var eqCard = u.equip.card;
+      u.equip = null;
+      var scav = findLivingScavengerNoEquip(side);
+      if (scav){
+        state.players[scav.side].units[scav.idx].equip = { card: eqCard, storedCharges: 0 };
+        addLog(state.players[scav.side].name + "'s Scavenger claims " + eqCard.name + '.', 'meta');
+      } else {
+        p.grave.push(eqCard);
+      }
+    }
+
+    if (card.key === 'martyr' && opts.killedByOpponent){
+      var mIdx = findOtherLivingUnit(p, idx);
+      if (mIdx !== -1) gainCharges(side, mIdx, 2);
+    }
+
+    p.grave.push(card);
+    p.units[idx] = null;
+
+    p.units.forEach(function(uu){ if (uu && uu.alive && uu.card.key === 'undertaker') uu.charges = (uu.charges || 0) + 1; });
+    p.continuous.forEach(function(cc){ if (cc && cc.card.key === 'blackbox') cc.charges = (cc.charges || 0) + 1; });
+    p.units.forEach(function(uu){ if (uu && uu.alive && uu.card.key === 'parasite' && uu.hostSlot === idx) uu.hostSlot = null; });
+  }
+
+  function forcePerformAction(side, idx, u, t){
+    var card = u.card;
+    var selfPlayer = state.players[side];
+    if (card.unitType === 'attacker'){
+      var power = card.power;
+      if (u.equip && u.equip.card.key === 'veteranstandard') power += selfPlayer.summonCount;
+      resolveAttackHit(side, 1 - side, power, selfPlayer.name + "'s " + card.name + " (Dead Man's Switch)", t);
+    } else if (card.unitType === 'healer'){
+      var best = findHealTarget(selfPlayer);
+      if (best) applyHeal(selfPlayer, best, card.heal, selfPlayer.name + "'s " + card.name + " (Dead Man's Switch)", t);
+    } else if (card.key === 'gravedigger'){
+      var graveCount = selfPlayer.grave.length;
+      for (var k = 0; k < graveCount; k++) resolveAttackHit(side, 1 - side, 4, selfPlayer.name + "'s Gravedigger (Dead Man's Switch)", t);
+    } else if (card.key === 'loadedgun'){
+      resolveAttackHit(side, 1 - side, 2, selfPlayer.name + "'s Loaded Gun (Dead Man's Switch)", t);
+    }
+    // mimic/undertaker/parasite/extortionist/bodyguard/scavenger have no meaningful forced retaliation — skipped.
+  }
+
+  // ---------- Heal helpers ----------
+  function findHealTarget(player){
+    var best = null, bestPct = 1;
+    player.structures.forEach(function(s, idx){
+      if (s.alive && s.hp < s.maxHp){
+        var pct = s.hp / s.maxHp;
+        if (pct < bestPct){ bestPct = pct; best = { kind: 'structure', idx: idx }; }
+      }
+    });
+    player.units.forEach(function(u, idx){
+      if (u && u.alive && u.hp < u.maxHp){
+        var pct = u.hp / u.maxHp;
+        if (pct < bestPct){ bestPct = pct; best = { kind: 'unit', idx: idx }; }
+      }
+    });
+    return best;
+  }
+  function applyHeal(player, best, amount, label, t){
+    if (best.kind === 'structure'){
+      var s = player.structures[best.idx];
+      var before = s.hp;
+      s.hp = Math.min(s.maxHp, s.hp + amount);
+      addLog('t' + t + ': ' + label + ' repairs Structure ' + (best.idx + 1) + ' for ' + (s.hp - before) + '.', 'heal');
+    } else {
+      var u = player.units[best.idx];
+      var before2 = u.hp;
+      u.hp = Math.min(u.maxHp, u.hp + amount);
+      addLog('t' + t + ': ' + label + ' heals ' + u.card.name + ' for ' + (u.hp - before2) + '.', 'heal');
+    }
+  }
+
+  // ---------- Attack resolution pipeline ----------
+  function pickAttackTarget(dp){
+    for (var i = 0; i < dp.units.length; i++){ if (dp.units[i] && dp.units[i].alive) return { kind: 'unit', idx: i }; }
+    for (var j = 0; j < dp.structures.length; j++){ if (dp.structures[j].alive) return { kind: 'structure', idx: j }; }
+    return null;
+  }
+
+  function resolveAttackHit(attackerSide, defSide, power, sourceLabel, t){
+    var dp = state.players[defSide];
+    var target = pickAttackTarget(dp);
+    if (!target) return undefined;
+    var trapResult = triggerArmedTrap(defSide, attackerSide, power, target.kind, target.idx, t);
+    if (trapResult === 'PAUSED') return 'PAUSED';
+    if (trapResult === true) return undefined;
+    var bgSlot = findLivingBodyguardSlot(dp);
+    if (bgSlot !== -1 && !(target.kind === 'unit' && target.idx === bgSlot)){
+      var originalTarget = target;
+      pauseForChoice({
+        title: 'Bodyguard',
+        message: dp.name + "'s Bodyguard offers to intercept this attack. Redirect it to Bodyguard?",
+        options: [
+          { label: 'Redirect to Bodyguard', onClick: function(){
+              var r = applyDamageToTarget(attackerSide, defSide, 'unit', bgSlot, power, sourceLabel, t);
+              if (r !== 'PAUSED') drainQueue();
+          }},
+          { label: 'Let it land normally', onClick: function(){
+              var r = applyDamageToTarget(attackerSide, defSide, originalTarget.kind, originalTarget.idx, power, sourceLabel, t);
+              if (r !== 'PAUSED') drainQueue();
+          }}
+        ]
+      });
+      return 'PAUSED';
+    }
+    return applyDamageToTarget(attackerSide, defSide, target.kind, target.idx, power, sourceLabel, t);
+  }
+
+  function applyDamageToTarget(attackerSide, defSide, kind, idx, power, sourceLabel, t){
+    var dp = state.players[defSide];
+    if (kind === 'unit'){
+      var target = dp.units[idx];
+      if (!target) return undefined;
+      target.hp -= power;
+      addLog('t' + t + ': ' + sourceLabel + ' hits ' + dp.name + "'s " + target.card.name + ' for ' + power + '.', 'attack');
+      if (target.hp <= 0){
+        var lwIdx = -1;
+        for (var i = 0; i < dp.traps.length; i++){ if (dp.traps[i] && dp.traps[i].card.key === 'lastwill'){ lwIdx = i; break; } }
+        if (lwIdx !== -1){
+          chargeExtortion(defSide);
+          var dyingName = target.card.name;
+          pauseForChoice({
+            title: "Last Will",
+            message: dp.name + "'s " + dyingName + ' has taken lethal damage. Save it at 1 HP, or let it die and draw 2 cards?',
+            options: [
+              { label: 'Save at 1 HP', onClick: function(){
+                  target.hp = 1;
+                  addLog(dp.name + "'s Last Will saves " + dyingName + ' at 1 HP.', 'trap');
+                  consumeTrap(defSide, lwIdx);
+                  drainQueue();
+              }},
+              { label: 'Let it die, draw 2', onClick: function(){
+                  destroyUnit(defSide, idx, { killedByOpponent: true });
+                  drawCards(dp, 2);
+                  addLog(dp.name + "'s Last Will lets " + dyingName + ' die — 2 cards drawn.', 'trap');
+                  consumeTrap(defSide, lwIdx);
+                  drainQueue();
+              }}
+            ]
+          });
+          return 'PAUSED';
+        }
+        destroyUnit(defSide, idx, { killedByOpponent: true });
+      }
+      return undefined;
+    }
+    var s = dp.structures[idx];
+    s.hp -= power;
+    addLog('t' + t + ': ' + sourceLabel + ' strikes ' + dp.name + "'s Structure " + (idx + 1) + ' for ' + power + '.', 'attack');
+    if (s.hp <= 0){
+      s.hp = 0; s.alive = false;
+      addLog('t' + t + ': ' + dp.name + "'s Structure " + (idx + 1) + ' is destroyed!', 'destroy');
+      if (dp.structures.every(function(x){ return !x.alive; })){
+        state.phase = 'gameOver';
+        state.winner = attackerSide;
+        addLog(state.players[attackerSide].name + ' wins! All of ' + dp.name + "'s structures have fallen.", 'win');
+        clearTimeout(simTimer);
+      }
+    }
+    return undefined;
+  }
+
+  // ---------- Trap dispatcher (fires when an attack lands) ----------
+  function triggerArmedTrap(defSide, attackerSide, power, targetKind, targetIdx, t){
+    var dp = state.players[defSide];
+    var TRAP_KEYS = ['mirror', 'donation', 'liquidator', 'mutualdestruction', 'standoff', 'repossess', 'cannibalize'];
+    var foundIdx = -1;
+    for (var i = 0; i < dp.traps.length; i++){
+      if (dp.traps[i] && TRAP_KEYS.indexOf(dp.traps[i].card.key) !== -1){ foundIdx = i; break; }
+    }
+    if (foundIdx === -1) return false;
+    chargeExtortion(defSide);
+    var key = dp.traps[foundIdx].card.key;
+    switch (key){
+      case 'mirror': resolveMirror(defSide, attackerSide, foundIdx); return true;
+      case 'donation': resolveDonation(defSide, attackerSide, foundIdx); return true;
+      case 'liquidator': resolveLiquidator(defSide, foundIdx); return true;
+      case 'repossess': resolveRepossess(defSide, attackerSide, foundIdx); return true;
+      case 'cannibalize': resolveCannibalize(defSide, foundIdx); return true;
+      case 'standoff': return resolveStandoff(defSide, attackerSide, foundIdx);
+      case 'mutualdestruction': return resolveMutualDestruction(defSide, attackerSide, foundIdx, t);
+    }
+    return false;
+  }
+
+  function resolveMirror(defSide, attackerSide, foundIdx){
+    var dp = state.players[defSide], ap = state.players[attackerSide];
+    ap.units.forEach(function(uu, i){
+      if (uu && uu.alive && uu.card.unitType === 'attacker') destroyUnit(attackerSide, i, { killedByOpponent: true });
+    });
+    addLog(dp.name + "'s Mirror Wall shatters the attack — every Striker-type unit of " + ap.name + "'s is destroyed!", 'trap');
+    consumeTrap(defSide, foundIdx);
+  }
+
+  function resolveDonation(defSide, attackerSide, foundIdx){
+    var dp = state.players[defSide], ap = state.players[attackerSide];
+    var idx = findWeakestUnit(dp);
+    if (idx === -1){ addLog(dp.name + "'s Donation fizzles — no unit to give away.", 'trap'); consumeTrap(defSide, foundIdx); return; }
+    var emptyIdx = ap.units.findIndex(function(x){ return !x; });
+    if (emptyIdx === -1){
+      addLog(dp.name + "'s Donation has nowhere to send " + dp.units[idx].card.name + ' — it is destroyed instead.', 'destroy');
+      destroyUnit(defSide, idx, {});
+    } else {
+      var inst = dp.units[idx];
+      dp.units[idx] = null;
+      ap.units[emptyIdx] = inst;
+      addLog(dp.name + ' is forced to donate ' + inst.card.name + ' to ' + ap.name + '!', 'trap');
+    }
+    consumeTrap(defSide, foundIdx);
+  }
+
+  function resolveLiquidator(defSide, foundIdx){
+    var dp = state.players[defSide];
+    var idx = findStrongestUnit(dp);
+    if (idx === -1){ addLog(dp.name + "'s Liquidator fizzles — no unit to liquidate.", 'trap'); consumeTrap(defSide, foundIdx); return; }
+    var u = dp.units[idx];
+    var hadEquip = !!u.equip;
+    var gained = Math.floor(u.hp / 2) + (u.charges || 0) + (hadEquip ? 2 : 0);
+    dp.resources += gained;
+    addLog(dp.name + "'s Liquidator cashes out " + u.card.name + ' for ' + gained + ' resources.', 'trap');
+    destroyUnit(defSide, idx, {});
+    consumeTrap(defSide, foundIdx);
+  }
+
+  function resolveRepossess(defSide, attackerSide, foundIdx){
+    var dp = state.players[defSide], ap = state.players[attackerSide];
+    var idx = -1;
+    for (var i = 0; i < ap.units.length; i++){
+      if (ap.units[i] && ap.units[i].alive && ap.units[i].originalOwner === defSide){ idx = i; break; }
+    }
+    if (idx === -1){ addLog(dp.name + "'s Repossess fizzles — nothing of theirs to reclaim.", 'trap'); consumeTrap(defSide, foundIdx); return; }
+    var inst = ap.units[idx];
+    var emptyIdx = dp.units.findIndex(function(x){ return !x; });
+    ap.units[idx] = null;
+    if (emptyIdx === -1){
+      dp.grave.push(inst.card);
+      addLog(dp.name + ' repossesses ' + inst.card.name + ' but has no room for it — it is scrapped.', 'trap');
+    } else {
+      dp.units[emptyIdx] = inst;
+      addLog(dp.name + ' repossesses ' + inst.card.name + '!', 'trap');
+    }
+    consumeTrap(defSide, foundIdx);
+  }
+
+  function resolveCannibalize(defSide, foundIdx){
+    var dp = state.players[defSide];
+    var alive = [];
+    dp.units.forEach(function(u, i){ if (u && u.alive) alive.push(i); });
+    if (alive.length < 2){ addLog(dp.name + "'s Cannibalize fizzles — not enough units.", 'trap'); consumeTrap(defSide, foundIdx); return; }
+    var sacIdx = findWeakestUnit(dp);
+    var recIdx = findStrongestUnit(dp, sacIdx);
+    if (recIdx === -1){ addLog(dp.name + "'s Cannibalize fizzles.", 'trap'); consumeTrap(defSide, foundIdx); return; }
+    var sac = dp.units[sacIdx], rec = dp.units[recIdx];
+    rec.maxHp += sac.hp; rec.hp += sac.hp; rec.charges = (rec.charges || 0) + (sac.charges || 0);
+    addLog(dp.name + ' cannibalizes ' + sac.card.name + ' into ' + rec.card.name + '.', 'trap');
+    destroyUnit(defSide, sacIdx, {});
+    consumeTrap(defSide, foundIdx);
+  }
+
+  function bidOptionsFor(player){
+    var r = player.resources;
+    var presets = [0, 1, 2, 3, 5];
+    var set = [];
+    presets.forEach(function(v){ if (v <= r && set.indexOf(v) === -1) set.push(v); });
+    if (r > 0 && set.indexOf(r) === -1) set.push(r);
+    if (set.indexOf(0) === -1) set.unshift(0);
+    set.sort(function(a, b){ return a - b; });
+    return set;
+  }
+
+  function resolveStandoff(defSide, attackerSide, foundIdx){
+    var dp = state.players[defSide], ap = state.players[attackerSide];
+    var defOpts = bidOptionsFor(dp);
+    pauseForChoice({
+      title: 'Standoff',
+      message: dp.name + ', choose your bid (Resources: ' + dp.resources + ').',
+      options: defOpts.map(function(v){
+        return { label: (v === dp.resources && v > 0) ? ('All (' + v + ')') : String(v), onClick: function(){
+          var defBid = v;
+          var atkOpts = bidOptionsFor(ap);
+          pauseForChoice({
+            title: 'Standoff',
+            message: ap.name + ', choose your bid (Resources: ' + ap.resources + ').',
+            options: atkOpts.map(function(v2){
+              return { label: (v2 === ap.resources && v2 > 0) ? ('All (' + v2 + ')') : String(v2), onClick: function(){
+                var atkBid = v2;
+                dp.resources = Math.max(0, dp.resources - defBid);
+                ap.resources = Math.max(0, ap.resources - atkBid);
+                if (defBid > atkBid){ drawCards(dp, 2); addLog(dp.name + ' wins the Standoff (' + defBid + ' vs ' + atkBid + ') and draws 2 cards.', 'trap'); }
+                else if (atkBid > defBid){ drawCards(ap, 2); addLog(ap.name + ' wins the Standoff (' + atkBid + ' vs ' + defBid + ') and draws 2 cards.', 'trap'); }
+                else { addLog('The Standoff ends in a tie (' + defBid + ' vs ' + atkBid + '). Neither side draws.', 'trap'); }
+                consumeTrap(defSide, foundIdx);
+                drainQueue();
+              }};
+            })
+          });
+        }};
+      })
+    });
+    return 'PAUSED';
+  }
+
+  function resolveMutualDestruction(defSide, attackerSide, foundIdx, t){
+    var dp = state.players[defSide], ap = state.players[attackerSide];
+    var dpIdxs = []; dp.units.forEach(function(u, i){ if (u && u.alive) dpIdxs.push(i); });
+    var apIdxs = []; ap.units.forEach(function(u, i){ if (u && u.alive) apIdxs.push(i); });
+    if (!dpIdxs.length || !apIdxs.length){
+      addLog(dp.name + "'s Mutual Destruction fizzles — not enough units on the field.", 'trap');
+      consumeTrap(defSide, foundIdx);
+      return true;
+    }
+    pauseForChoice({
+      title: 'Mutual Destruction',
+      message: dp.name + ', choose one of your units to swap into combat.',
+      options: dpIdxs.map(function(i){
+        return { label: dp.units[i].card.name + ' (slot ' + (i + 1) + ')', onClick: function(){
+          var dpPick = i;
+          pauseForChoice({
+            title: 'Mutual Destruction',
+            message: ap.name + ', choose one of your units to swap into combat.',
+            options: apIdxs.map(function(j){
+              return { label: ap.units[j].card.name + ' (slot ' + (j + 1) + ')', onClick: function(){
+                var apPick = j;
+                var tmp = dp.units[dpPick];
+                dp.units[dpPick] = ap.units[apPick];
+                ap.units[apPick] = tmp;
+                addLog(dp.name + ' and ' + ap.name + ' swap ' + dp.units[dpPick].card.name + ' and ' + ap.units[apPick].card.name + ' in the chaos!', 'trap');
+                consumeTrap(defSide, foundIdx);
+                var r1 = performAction(defSide, dpPick, dp.units[dpPick], t);
+                if (r1 === 'PAUSED') return;
+                var r2 = performAction(attackerSide, apPick, ap.units[apPick], t);
+                if (r2 === 'PAUSED') return;
+                drainQueue();
+              }};
+            })
+          });
+        }};
+      })
+    });
+    return 'PAUSED';
+  }
+
+  // ---------- Hijack (auto-resolve redirect) ----------
+  function tryHijack(activatingSide){
+    var opp = 1 - activatingSide;
+    var op = state.players[opp];
+    var hijackIdx = -1;
+    for (var i = 0; i < op.traps.length; i++){ if (op.traps[i] && op.traps[i].card.key === 'hijack'){ hijackIdx = i; break; } }
+    if (hijackIdx === -1) return null;
+    var chargedSlot = -1;
+    for (var j = 0; j < op.units.length; j++){ if (op.units[j] && op.units[j].alive && (op.units[j].charges || 0) > 0){ chargedSlot = j; break; } }
+    if (chargedSlot === -1) return null;
+    chargeExtortion(opp);
+    op.units[chargedSlot].charges -= 1;
+    consumeTrap(opp, hijackIdx);
+    addLog(op.name + "'s Hijack seizes control of the effect!", 'trap');
+    return opp;
+  }
+
+  function hitOwnWeakest(side, amount, label, t){
+    var p = state.players[side];
+    var idx = findWeakestUnit(p);
+    if (idx === -1){
+      var sIdx = p.structures.findIndex(function(s){ return s.alive; });
+      if (sIdx === -1) return;
+      p.structures[sIdx].hp -= amount;
+      addLog('t' + t + ': ' + label + ' backfires onto ' + p.name + "'s Structure " + (sIdx + 1) + ' for ' + amount + '.', 'attack');
+      if (p.structures[sIdx].hp <= 0){
+        p.structures[sIdx].hp = 0; p.structures[sIdx].alive = false;
+        addLog(p.name + "'s Structure " + (sIdx + 1) + ' is destroyed!', 'destroy');
+        if (p.structures.every(function(x){ return !x.alive; })){
+          state.phase = 'gameOver';
+          state.winner = 1 - side;
+          addLog(state.players[1 - side].name + ' wins!', 'win');
+          clearTimeout(simTimer);
+        }
+      }
+      return;
+    }
+    var target = p.units[idx];
+    target.hp -= amount;
+    addLog('t' + t + ': ' + label + ' backfires onto ' + p.name + "'s " + target.card.name + ' for ' + amount + '.', 'attack');
+    if (target.hp <= 0) destroyUnit(side, idx, { killedByOpponent: true });
+  }
+
+  // ---------- Per-card unit actions ----------
+  function doAttackerAction(side, slotIdx, u, t){
+    var card = u.card;
+    var selfPlayer = state.players[side];
+    if (card.key === 'predator' && selfPlayer.resources < 3){
+      addLog('t' + t + ': ' + selfPlayer.name + "'s Predator runs out of resources to sustain itself and collapses.", 'destroy');
+      destroyUnit(side, slotIdx, {});
+      return;
+    }
+    var power = card.power;
+    if (u.equip && u.equip.card.key === 'veteranstandard') power += selfPlayer.summonCount;
+    selfPlayer.lastAction = { kind: 'attack', amount: power };
+    return resolveAttackHit(side, 1 - side, power, selfPlayer.name + "'s " + card.name, t);
+  }
+
+  function doHealerAction(side, slotIdx, u, t){
+    var card = u.card;
+    var selfPlayer = state.players[side];
+    var best = findHealTarget(selfPlayer);
+    selfPlayer.lastAction = { kind: 'heal', amount: card.heal };
+    if (!best) return;
+    applyHeal(selfPlayer, best, card.heal, selfPlayer.name + "'s " + card.name, t);
+  }
+
+  function doGravedigger(side, slotIdx, u, t){
+    if (!(u.charges > 0)) return;
+    var hijacked = tryHijack(side);
+    var selfPlayer = state.players[side];
+    var graveCount = selfPlayer.grave.length;
+    u.charges = 0;
+    addLog('t' + t + ': ' + selfPlayer.name + "'s Gravedigger unleashes " + graveCount + ' strike(s) from the grave!', 'attack');
+    for (var k = 0; k < graveCount; k++){
+      if (hijacked !== null){ hitOwnWeakest(hijacked, 4, selfPlayer.name + "'s Gravedigger (hijacked)", t); continue; }
+      var r = resolveAttackHit(side, 1 - side, 4, selfPlayer.name + "'s Gravedigger", t);
+      if (r === 'PAUSED') return 'PAUSED'; // remaining hits in this volley are dropped if one hit opens a choice modal
+    }
+  }
+
+  function doUndertaker(side, slotIdx, u, t){
+    if (!(u.charges >= 2)) return;
+    var hijacked = tryHijack(side);
+    var selfPlayer = state.players[side];
+    if (hijacked !== null){
+      u.charges -= 2;
+      addLog('t' + t + ': ' + selfPlayer.name + "'s Undertaker is hijacked — its recall fizzles.", 'trap');
+      return;
+    }
+    var foundIdx = -1;
+    for (var i = selfPlayer.grave.length - 1; i >= 0; i--){ if (selfPlayer.grave[i].type === 'unit'){ foundIdx = i; break; } }
+    if (foundIdx === -1) return;
+    u.charges -= 2;
+    var card = selfPlayer.grave.splice(foundIdx, 1)[0];
+    selfPlayer.hand.push(card);
+    addLog('t' + t + ': ' + selfPlayer.name + "'s Undertaker recalls " + card.name + ' from the grave.', 'heal');
+  }
+
+  function doParasite(side, slotIdx, u, t){
+    if (u.hostSlot !== null && u.hostSlot !== undefined) return;
+    var selfPlayer = state.players[side];
+    for (var i = 0; i < selfPlayer.units.length; i++){
+      if (i !== slotIdx && selfPlayer.units[i] && selfPlayer.units[i].alive){
+        u.hostSlot = i;
+        addLog('t' + t + ': ' + selfPlayer.name + "'s Parasite attaches to " + selfPlayer.units[i].card.name + '.', 'meta');
+        return;
+      }
+    }
+  }
+
+  function doLoadedGun(side, slotIdx, u, t){
+    if (!(u.charges > 0)) return;
+    var hijacked = tryHijack(side);
+    u.charges -= 1;
+    var selfPlayer = state.players[side];
+    var label = selfPlayer.name + "'s Loaded Gun";
+    var result;
+    if (hijacked !== null) hitOwnWeakest(hijacked, 2, label + ' (hijacked)', t);
+    else result = resolveAttackHit(side, 1 - side, 2, label, t);
+    if (u.charges <= 0) destroyUnit(side, slotIdx, {});
+    if (result === 'PAUSED') return 'PAUSED';
+  }
+
+  function doMimic(side, slotIdx, u, t){
+    if (!(u.charges > 0)) return;
+    var hijacked = tryHijack(side);
+    var selfPlayer = state.players[side];
+    var templateIdx = -1;
+    for (var i = 0; i < selfPlayer.units.length; i++){
+      if (i !== slotIdx && selfPlayer.units[i] && selfPlayer.units[i].alive){ templateIdx = i; break; }
+    }
+    if (templateIdx === -1) return;
+    u.charges -= 1;
+    var template = selfPlayer.units[templateIdx].card;
+    var label = selfPlayer.name + "'s Mimic (as " + template.name + ')';
+    if (hijacked !== null){
+      var amt = template.unitType === 'attacker' ? template.power : (template.heal || 2);
+      hitOwnWeakest(hijacked, amt, label + ' (hijacked)', t);
+      return;
+    }
+    if (template.unitType === 'attacker'){
+      var power = template.power;
+      if (selfPlayer.units[templateIdx].equip && selfPlayer.units[templateIdx].equip.card.key === 'veteranstandard') power += selfPlayer.summonCount;
+      var r = resolveAttackHit(side, 1 - side, power, label, t);
+      selfPlayer.lastAction = { kind: 'attack', amount: power };
+      if (r === 'PAUSED') return 'PAUSED';
+    } else if (template.unitType === 'healer'){
+      var best = findHealTarget(selfPlayer);
+      if (best){ applyHeal(selfPlayer, best, template.heal, label, t); selfPlayer.lastAction = { kind: 'heal', amount: template.heal }; }
+    }
+    // Mimic only copies Striker/Medic-style templates in this prototype, not other specials.
+  }
+
+  function resolveBlackBox(side, continuousIdx){
+    var p = state.players[side];
+    var slot = p.continuous[continuousIdx];
+    if (!slot || slot.card.key !== 'blackbox') return;
+    if ((slot.charges || 0) < 3) return;
+    chargeExtortion(side);
+    slot.charges -= 3;
+    if (!p.lastAction) return;
+    var label = p.name + "'s Black Box (replay)";
+    if (p.lastAction.kind === 'attack'){
+      var r = resolveAttackHit(side, 1 - side, p.lastAction.amount, label, state.tick);
+      if (r === 'PAUSED') return 'PAUSED';
+    } else {
+      var best = findHealTarget(p);
+      if (best) applyHeal(p, best, p.lastAction.amount, label, state.tick);
+    }
+  }
+
+  // ---------- Dispatcher ----------
+  function performAction(side, slotIdx, u, t){
+    var card = u.card;
+    switch (card.unitType){
+      case 'attacker': return doAttackerAction(side, slotIdx, u, t);
+      case 'healer': return doHealerAction(side, slotIdx, u, t);
+      case 'special':
+        switch (card.key){
+          case 'gravedigger': return doGravedigger(side, slotIdx, u, t);
+          case 'undertaker': return doUndertaker(side, slotIdx, u, t);
+          case 'parasite': return doParasite(side, slotIdx, u, t);
+          case 'loadedgun': return doLoadedGun(side, slotIdx, u, t);
+          case 'mimic': return doMimic(side, slotIdx, u, t);
+        }
+        return;
+      default: return;
+    }
+  }
+
+  function endSimulation(){
+    state.phase = 'roundEnd';
+    addLog('Round ' + state.round + ' ends.', 'meta');
+    render();
+  }
+
+  function continueToNextRound(){
+    if (state.phase !== 'roundEnd') return;
+    state.round++;
+    state.players.forEach(function(p){ p.resources += 1; drawCards(p, DRAW_PER_ROUND); });
+    state.phase = 'setup';
+    state.tick = 0;
+    render();
+  }
+
+  // ---------- Setup interactions ----------
+  function onHandCardClick(side, idx){
+    if (state.phase !== 'setup') return;
+    if (state.selected && state.selected.side === side && state.selected.idx === idx){
+      state.selected = null;
+    } else {
+      state.selected = { side: side, idx: idx };
+    }
+    render();
+  }
+
+  function onSlotClick(side, zone, idx){
+    if (state.phase !== 'setup') return;
+    var player = state.players[side];
+    var sel = state.selected;
+    var selCard = (sel && sel.side === side) ? player.hand[sel.idx] : null;
+
+    if (zone === 'unit'){
+      var existingUnit = player.units[idx];
+      if (existingUnit && selCard && selCard.type === 'equip' && !existingUnit.equip){
+        player.hand.splice(sel.idx, 1);
+        existingUnit.equip = { card: selCard, storedCharges: 0 };
+        state.selected = null;
+        render();
+        return;
+      }
+      if (existingUnit){
+        if (existingUnit.equip) player.grave.push(existingUnit.equip.card);
+        player.hand.push(existingUnit.card);
+        player.units[idx] = null;
+        state.selected = null;
+        render();
+        return;
+      }
+      if (selCard && selCard.type === 'unit'){
+        player.hand.splice(sel.idx, 1);
+        var hostSlot = null;
+        if (selCard.key === 'parasite'){
+          for (var i = 0; i < player.units.length; i++){
+            if (i !== idx && player.units[i] && player.units[i].alive){ hostSlot = i; break; }
+          }
+        }
+        player.units[idx] = { card: selCard, hp: selCard.hp, maxHp: selCard.hp, alive: true, charges: selCard.startCharges || 0, equip: null, originalOwner: side, hostSlot: hostSlot };
+        player.summonCount += 1;
+        state.selected = null;
+        render();
+        return;
+      }
+      return;
+    }
+
+    if (zone === 'trap' || zone === 'continuous'){
+      var arr = zone === 'trap' ? player.traps : player.continuous;
+      var existing = arr[idx];
+      if (existing){
+        player.hand.push(existing.card);
+        arr[idx] = null;
+        state.selected = null;
+        render();
+        return;
+      }
+      if (!selCard) return;
+      if (zone === 'trap' && selCard.type !== 'trap') return;
+      if (zone === 'continuous' && selCard.type !== 'continuous') return;
+      player.hand.splice(sel.idx, 1);
+      arr[idx] = zone === 'continuous' ? { card: selCard, charges: 0 } : { card: selCard };
+      state.selected = null;
+      render();
+    }
+  }
+
+  function autoPlaceCard(side, handIdx){
+    if (state.phase !== 'setup') return;
+    var player = state.players[side];
+    var card = player.hand[handIdx];
+    if (!card) return;
+    var zone, targetIdx = -1;
+    if (card.type === 'unit'){
+      zone = 'unit';
+      targetIdx = player.units.findIndex(function(u){ return !u; });
+    } else if (card.type === 'trap'){
+      zone = 'trap';
+      targetIdx = player.traps.findIndex(function(t){ return !t; });
+    } else if (card.type === 'continuous'){
+      zone = 'continuous';
+      targetIdx = player.continuous.findIndex(function(c){ return !c; });
+    } else if (card.type === 'equip'){
+      zone = 'unit';
+      targetIdx = player.units.findIndex(function(u){ return u && u.alive && !u.equip; });
+    }
+    if (targetIdx === -1){
+      // nowhere to auto-place (zone full, or no eligible unit for an equip) — just select it for manual placement
+      state.selected = { side: side, idx: handIdx };
+      render();
+      return;
+    }
+    state.selected = { side: side, idx: handIdx };
+    onSlotClick(side, zone, targetIdx);
+  }
+
+  function toggleGrave(side){
+    state.graveOpen[side] = !state.graveOpen[side];
+    render();
+  }
+
+  function resetGame(){
+    if (!confirm('Start a brand new game? Current boards and log will be cleared.')) return;
+    clearTimeout(simTimer);
+    state = freshState();
+    lastHandUids = [new Set(), new Set()];
+    render();
+  }
+
+  // ---------- Rendering ----------
+  function el(tag, cls, attrs){
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (attrs) for (var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  function cardColorClass(card){
+    if (card.type === 'trap' || card.type === 'continuous') return 'ctrap';
+    if (card.type === 'equip') return 'cequip';
+    if (card.unitType === 'attacker') return 'cattack';
+    if (card.unitType === 'healer') return 'cheal';
+    return 'cspecial';
+  }
+
+  function statLines(card){
+    if (card.type === 'equip') return ['EQUIP', ''];
+    if (card.type === 'continuous') return ['FIELD', ''];
+    if (card.type === 'trap') return ['TRAP', '1-USE'];
+    if (card.unitType === 'attacker') return ['PWR ' + card.power, 'HP ' + card.hp];
+    if (card.unitType === 'healer') return ['HEAL ' + card.heal, 'HP ' + card.hp];
+    if (card.unitType === 'passive') return ['PASSIVE', 'HP ' + card.hp];
+    return ['SPECIAL', 'HP ' + card.hp];
+  }
+
+  function renderHandCard(side, card, idx){
+    var isSelected = state.selected && state.selected.side === side && state.selected.idx === idx;
+    var interactive = state.phase === 'setup';
+    var cls = 'card ' + card.key + ' ' + cardColorClass(card) + (card.type !== 'unit' ? ' trap-card' : '') +
+      (interactive ? ' selectable' : ' dim') + (isSelected ? ' is-selected' : '');
+    var c = el('div', cls, { tabindex: interactive ? '0' : '-1', role:'button',
+      'aria-pressed': isSelected ? 'true':'false', title: card.name + ' — ' + card.effect });
+    var lines = statLines(card);
+    c.innerHTML =
+      '<div class="icon">' + card.icon + '</div>' +
+      '<div class="name">' + card.name + '</div>' +
+      '<div class="stat mono">' + lines[0] + '</div>' +
+      '<div class="stat mono">' + lines[1] + '</div>';
+    if (interactive){
+      c.addEventListener('click', function(){ onHandCardClick(side, idx); });
+      c.addEventListener('dblclick', function(e){ e.preventDefault(); autoPlaceCard(side, idx); });
+      c.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); onHandCardClick(side, idx); } });
+    }
+    return c;
+  }
+
+  function renderUnitSlot(side, idx){
+    var player = state.players[side];
+    var u = player.units[idx];
+    var interactive = state.phase === 'setup';
+    var selCard = (interactive && state.selected && state.selected.side === side) ? player.hand[state.selected.idx] : null;
+
+    if (!u){
+      var validTarget = !!(selCard && selCard.type === 'unit');
+      var slot = el('div', 'slot' + (validTarget ? ' valid-target' : ''), { tabindex:'0', role:'button', 'aria-label':'empty unit slot' });
+      slot.textContent = '+';
+      slot.addEventListener('click', function(){ onSlotClick(side, 'unit', idx); });
+      slot.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); onSlotClick(side, 'unit', idx); } });
+      return slot;
+    }
+    var card = u.card;
+    var equipTarget = !!(selCard && selCard.type === 'equip' && !u.equip);
+    var c = el('div', 'card placed ' + card.key + ' ' + cardColorClass(card) + (interactive ? ' selectable' : '') + (equipTarget ? ' valid-target' : ''),
+      { tabindex:'0', role:'button', title: card.name + ' — ' + card.effect + (interactive ? ' (click to return to hand)' : '') });
+    var pct = Math.max(0, u.hp / u.maxHp);
+    var lines;
+    if (card.unitType === 'attacker') lines = ['PWR ' + card.power, ''];
+    else if (card.unitType === 'healer') lines = ['HEAL ' + card.heal, ''];
+    else if (card.unitType === 'passive') lines = ['PASSIVE', ''];
+    else lines = ['SPECIAL', ''];
+    var chargePct = (state.phase === 'simulating' || state.phase === 'roundEnd' || state.phase === 'gameOver') && isFinite(card.cooldown)
+      ? (state.tick % card.cooldown) / card.cooldown : 0;
+    var chargeLine = card.usesCharges ? ('<div class="stat mono">⚡' + (u.charges || 0) + '</div>') : '';
+    var equipBadge = u.equip ? ('<div class="equip-badge" title="' + u.equip.card.name + ' — ' + u.equip.card.effect + '">' + u.equip.card.icon + '</div>') : '';
+    c.innerHTML =
+      equipBadge +
+      '<div class="icon">' + card.icon + '</div>' +
+      '<div class="name">' + card.name + '</div>' +
+      '<div class="stat mono">' + lines[0] + '</div>' +
+      '<div class="stat mono">' + u.hp + '/' + u.maxHp + '</div>' +
+      chargeLine +
+      '<div class="hp-bar"><div class="hp-fill' + (pct < .34 ? ' low' : '') + '" style="width:' + (pct*100) + '%"></div></div>' +
+      '<div class="charge-bar"><div class="charge-fill" style="width:' + (chargePct*100) + '%"></div></div>';
+    if (interactive){
+      c.addEventListener('click', function(){ onSlotClick(side, 'unit', idx); });
+      c.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); onSlotClick(side, 'unit', idx); } });
+    }
+    return c;
+  }
+
+  function renderZoneSlot(side, zone, idx){
+    var player = state.players[side];
+    var arr = zone === 'trap' ? player.traps : player.continuous;
+    var inst = arr[idx];
+    if (!inst){
+      var validTarget = state.phase === 'setup' && state.selected && state.selected.side === side &&
+        player.hand[state.selected.idx] && player.hand[state.selected.idx].type === zone;
+      var slot = el('div', 'slot trap-slot' + (validTarget ? ' valid-target' : ''), { tabindex:'0', role:'button', 'aria-label':'empty ' + zone + ' slot' });
+      slot.textContent = '+';
+      slot.addEventListener('click', function(){ onSlotClick(side, zone, idx); });
+      slot.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); onSlotClick(side, zone, idx); } });
+      return slot;
+    }
+    var card = inst.card;
+    var interactive = state.phase === 'setup';
+    var c = el('div', 'card placed trap-card ' + card.key + ' ' + cardColorClass(card) + (interactive ? ' selectable' : ''),
+      { tabindex:'0', role:'button', title: card.name + ' — ' + card.effect + (interactive ? ' (click to return to hand)' : '') });
+    var statLine = zone === 'continuous' ? ('⚡' + (inst.charges || 0) + '/3') : 'ARMED';
+    c.innerHTML =
+      '<div class="icon">' + card.icon + '</div>' +
+      '<div class="name">' + card.name + '</div>' +
+      '<div class="stat mono">' + statLine + '</div>';
+    if (interactive){
+      c.addEventListener('click', function(){ onSlotClick(side, zone, idx); });
+      c.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); onSlotClick(side, zone, idx); } });
+    }
+    return c;
+  }
+
+  function renderStructure(side, idx){
+    var s = state.players[side].structures[idx];
+    var wrap = el('div', 'structure' + (!s.alive ? ' dead' : ''));
+    var pct = Math.max(0, s.hp / s.maxHp);
+    wrap.innerHTML =
+      '<div class="structure-shape"><div class="structure-fill" style="height:' + (pct*100) + '%"></div></div>' +
+      '<div class="structure-hp mono">' + (s.alive ? ('S' + (idx+1) + ' ' + s.hp + '/' + s.maxHp) : ('S' + (idx+1) + ' DOWN')) + '</div>';
+    return wrap;
+  }
+
+  function renderPlayerPanel(side){
+    var p = state.players[side];
+    document.getElementById('name-' + side).textContent = p.name;
+    document.getElementById('res-' + side).textContent = 'Res ' + p.resources;
+    document.getElementById('deck-' + side).textContent = 'Deck ' + p.deck.length;
+    var graveBtn = document.getElementById('grave-' + side);
+    graveBtn.textContent = 'Grave ' + p.grave.length;
+    graveBtn.onclick = function(){ toggleGrave(side); };
+
+    var graveList = document.getElementById('graveList-' + side);
+    graveList.hidden = !state.graveOpen[side];
+    if (state.graveOpen[side]){
+      graveList.innerHTML = '';
+      if (p.grave.length === 0){
+        var e = el('span', null); e.style.color = 'var(--text-dim)'; e.style.fontSize = '.72rem'; e.textContent = 'Empty.';
+        graveList.appendChild(e);
+      } else {
+        p.grave.forEach(function(c){
+          var chip = el('span', 'grave-chip', { title: c.name });
+          chip.textContent = c.icon;
+          graveList.appendChild(chip);
+        });
+      }
+    }
+
+    var structuresRow = document.getElementById('structures-' + side);
+    structuresRow.innerHTML = '';
+    for (var i = 0; i < STRUCTURE_COUNT; i++) structuresRow.appendChild(renderStructure(side, i));
+
+    var unitsRow = document.getElementById('units-' + side);
+    unitsRow.innerHTML = '';
+    for (var u = 0; u < UNIT_SLOTS; u++) unitsRow.appendChild(renderUnitSlot(side, u));
+
+    var trapsRow = document.getElementById('traps-' + side);
+    trapsRow.innerHTML = '';
+    for (var tI = 0; tI < TRAP_SLOTS; tI++) trapsRow.appendChild(renderZoneSlot(side, 'trap', tI));
+    for (var cI = 0; cI < CONTINUOUS_SLOTS; cI++) trapsRow.appendChild(renderZoneSlot(side, 'continuous', cI));
+
+    var handRow = document.getElementById('hand-' + side);
+    handRow.innerHTML = '';
+    var seenBefore = lastHandUids[side];
+    var drawOrder = 0;
+    p.hand.forEach(function(card, idx){
+      var isNew = !seenBefore.has(card.uid);
+      var cardEl = renderHandCard(side, card, idx);
+      handRow.appendChild(cardEl);
+      if (isNew){
+        animateDraw(cardEl, side, drawOrder);
+        drawOrder++;
+      }
+    });
+    lastHandUids[side] = new Set(p.hand.map(function(c){ return c.uid; }));
+  }
+
+  var PHASE_LABEL = { setup:'Setup', simulating:'Simulating', roundEnd:'Round Complete', gameOver:'Game Over' };
+
+  function renderHeader(){
+    document.getElementById('roundLabel').textContent = state.round;
+    document.getElementById('phaseLabel').textContent = state.phase === 'gameOver' && state.winner != null
+      ? state.players[state.winner].name + ' Wins' : PHASE_LABEL[state.phase];
+
+    var tickPill = document.getElementById('tickPill');
+    var progressWrap = document.getElementById('progressWrap');
+    var showTick = state.phase === 'simulating' || state.phase === 'roundEnd' || state.phase === 'gameOver';
+    tickPill.hidden = !showTick;
+    progressWrap.hidden = !showTick;
+    if (showTick){
+      document.getElementById('tickLabel').textContent = state.tick;
+      document.getElementById('progressFill').style.width = (state.tick / SIM_TICKS * 100) + '%';
+    }
+
+    document.querySelectorAll('.speed-btn').forEach(function(b){
+      b.classList.toggle('active', b.dataset.speed === state.speed);
+    });
+
+    var mainBtn = document.getElementById('mainActionBtn');
+    mainBtn.disabled = false;
+    if (state.phase === 'setup'){ mainBtn.textContent = 'Reveal & Simulate'; mainBtn.onclick = startSimulation; }
+    else if (state.phase === 'simulating'){
+      if (state.speed === 'step' && !state.pendingChoice){ mainBtn.textContent = 'Step ▶'; mainBtn.onclick = stepOnce; }
+      else { mainBtn.textContent = 'Simulating…'; mainBtn.disabled = true; mainBtn.onclick = null; }
+    }
+    else if (state.phase === 'roundEnd'){ mainBtn.textContent = 'Draw & Continue'; mainBtn.onclick = continueToNextRound; }
+    else { mainBtn.textContent = 'New Game'; mainBtn.onclick = resetGame; }
+
+    var overlay = document.getElementById('overlay');
+    if (state.phase === 'gameOver'){
+      overlay.hidden = false;
+      var winnerName = state.players[state.winner].name;
+      var loserName = state.players[1 - state.winner].name;
+      document.getElementById('overlayTitle').textContent = winnerName + ' Wins';
+      document.getElementById('overlaySub').textContent = 'All of ' + loserName + "'s structures have fallen after " + state.round + ' round(s).';
+    } else {
+      overlay.hidden = true;
+    }
+  }
+
+  function renderLog(){
+    var body = document.getElementById('logBody');
+    body.innerHTML = '';
+    state.log.forEach(function(entry){
+      var line = el('div', 'log-line ' + entry.type);
+      line.textContent = entry.text;
+      body.appendChild(line);
+    });
+    body.scrollTop = body.scrollHeight;
+    document.getElementById('logCount').textContent = state.log.length + ' event' + (state.log.length === 1 ? '' : 's');
+  }
+
+  function renderChoiceOverlay(){
+    var el2 = document.getElementById('choiceOverlay');
+    if (!state.pendingChoice){ el2.hidden = true; return; }
+    el2.hidden = false;
+    document.getElementById('choiceTitle').textContent = state.pendingChoice.title;
+    document.getElementById('choiceMessage').textContent = state.pendingChoice.message;
+    var opts = document.getElementById('choiceOptions');
+    opts.innerHTML = '';
+    state.pendingChoice.options.forEach(function(opt){
+      var b = document.createElement('button');
+      b.className = 'btn primary';
+      b.textContent = opt.label;
+      b.onclick = function(){
+        state.pendingChoice = null;
+        opt.onClick();
+        render();
+      };
+      opts.appendChild(b);
+    });
+  }
+
+  function render(){
+    renderHeader();
+    renderPlayerPanel(0);
+    renderPlayerPanel(1);
+    renderLog();
+    renderChoiceOverlay();
+  }
+
+  document.querySelectorAll('.speed-btn').forEach(function(b){
+    b.addEventListener('click', function(){
+      state.speed = b.dataset.speed;
+      render();
+      if (state.phase === 'simulating' && !state.pendingChoice) scheduleTick();
+    });
+  });
+  document.getElementById('resetBtn').addEventListener('click', resetGame);
+  document.getElementById('overlayNewGame').addEventListener('click', resetGame);
+
+  state = freshState();
+  render();
+})();
+</script>
+</body>
+</html>
