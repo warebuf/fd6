@@ -114,18 +114,20 @@
   }
   .grave-chip{ width:20px; height:20px; display:flex; align-items:center; justify-content:center; border-radius:4px; background:var(--panel-2); border:1px solid var(--line); opacity:.7; font-size:.85rem; }
 
-  .section{ display:flex; flex-direction:column; min-height:0; gap:2px; }
+  /* Cards are sized by width (see --card-w / --trap-w), so each section is as tall as its content.
+     The hand takes whatever height is left and wraps onto more lines instead of scrolling sideways. */
+  .panel{ --card-w:70px; --trap-w:62px; --structure-w:66px; }
+  .section{ flex:0 0 auto; display:flex; flex-direction:column; gap:2px; }
+  .sec-hand{ flex:1 1 auto; min-height:0; }
   .row-label{ flex:0 0 auto; font-size:.6rem; text-transform:uppercase; letter-spacing:.07em; color:var(--text-dim); }
-  .row{ flex:1 1 auto; min-height:0; display:flex; align-items:center; gap:5px; }
-  .sec-structures{ flex:0.85 1 0; }
-  .sec-units{ flex:2 1 0; }
-  .sec-traps{ flex:0.95 1 0; }
-  .sec-hand{ flex:1.7 1 0; }
-  .row.hand-row{ overflow-x:auto; overflow-y:hidden; justify-content:flex-start; }
-  .row.zone-row{ overflow-x:auto; overflow-y:hidden; justify-content:flex-start; }
+  .row{ display:flex; flex-wrap:wrap; align-items:flex-start; align-content:flex-start; gap:5px; }
+  .row.hand-row{ flex:1 1 auto; min-height:0; overflow-y:auto; }
+  /* Traps / Field always holds exactly 7 slots: shrink them to fit the row rather than scroll. */
+  .row.zone-row{ flex-wrap:nowrap; }
+  .row.zone-row > .card, .row.zone-row > .slot{ flex:1 1 0; min-width:0; max-width:var(--trap-w); }
 
   /* structures */
-  .structure{ height:100%; max-height:78px; aspect-ratio:.85; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; }
+  .structure{ width:var(--structure-w); aspect-ratio:.85; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; }
   .structure-shape{
     position:relative; height:62%; aspect-ratio:1;
     clip-path:polygon(50% 0%, 100% 35%, 82% 100%, 18% 100%, 0% 35%);
@@ -140,21 +142,27 @@
 
   /* slots + cards */
   .slot{
-    height:100%; max-height:98px; aspect-ratio:.72; border-radius:8px; border:1.5px dashed var(--line);
+    width:var(--card-w); aspect-ratio:.72; border-radius:8px; border:1.5px dashed var(--line);
     display:flex; align-items:center; justify-content:center; color:var(--text-dim);
-    font-size:1.1rem; cursor:default; background:var(--panel-2); flex:0 0 auto;
+    font-size:1.1rem; cursor:default; background:var(--panel-2); flex:0 0 auto; position:relative;
   }
-  .slot.trap-slot{ max-height:86px; }
+  .prio-badge{
+    position:absolute; top:2px; left:2px; min-width:13px; height:13px; padding:0 3px; border-radius:4px;
+    font-size:8px; font-weight:600; line-height:13px; text-align:center;
+    background:var(--panel-2); border:1px solid var(--line); color:var(--text-dim); z-index:2;
+  }
+  .card .prio-badge{ background:var(--bg); }
+  .slot.trap-slot{ width:var(--trap-w); }
   .slot.valid-target{ border-color:var(--p1); background:var(--p1-bg); cursor:pointer; color:var(--p1); }
   .panel.p2 .slot.valid-target{ border-color:var(--p2); background:var(--p2-bg); color:var(--p2); }
 
   .card{
-    height:100%; max-height:98px; aspect-ratio:.72; flex:0 0 auto; border-radius:8px; border:1.5px solid var(--line);
+    width:var(--card-w); aspect-ratio:.72; flex:0 0 auto; border-radius:8px; border:1.5px solid var(--line);
     background:var(--panel); padding:4% 3%; display:flex; flex-direction:column;
-    align-items:center; justify-content:flex-start; gap:2%; text-align:center; cursor:pointer; position:relative;
+    align-items:center; justify-content:flex-start; gap:2%; text-align:center; cursor:pointer; position:relative; user-select:none;
     transition:transform .12s ease, box-shadow .12s ease;
   }
-  .card.trap-card{ max-height:86px; }
+  .card.trap-card{ width:var(--trap-w); }
   .card.cattack{ border-top:3px solid var(--danger); }
   .card.cheal{ border-top:3px solid var(--heal); }
   .card.ctrap{ border-top:3px solid var(--trap); }
@@ -171,6 +179,26 @@
   .card.dim{ opacity:.55; }
   .card.valid-target{ box-shadow:0 0 0 2px var(--p1) inset; }
   .panel.p2 .card.valid-target{ box-shadow:0 0 0 2px var(--p2) inset; }
+  .card.next-actor{ animation:next-pulse 1.1s ease-in-out infinite; }
+  .panel.p1 .card.next-actor{ --next-color:var(--p1); }
+  .panel.p2 .card.next-actor{ --next-color:var(--p2); }
+  @keyframes next-pulse{
+    0%,100%{ box-shadow:0 0 0 2px var(--next-color); }
+    50%{ box-shadow:0 0 0 4px var(--next-color), 0 0 12px var(--next-color); }
+  }
+  .next-tag{
+    position:absolute; bottom:3px; left:50%; transform:translateX(-50%);
+    font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:7px; letter-spacing:.08em;
+    padding:1px 5px; border-radius:999px; background:var(--next-color); color:var(--bg); z-index:2;
+  }
+  .next-pill.p1{ border-color:var(--p1); color:var(--p1); } .next-pill.p1 b{ color:var(--p1); }
+  .next-pill.p2{ border-color:var(--p2); color:var(--p2); } .next-pill.p2 b{ color:var(--p2); }
+  .activate-btn{
+    font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:clamp(7px,1.15vh,9px); letter-spacing:.06em; text-transform:uppercase;
+    padding:1px 7px; border-radius:999px; border:1px solid var(--text); background:var(--text); color:var(--bg);
+    cursor:pointer; line-height:1.3; z-index:2; animation:next-pulse 1.4s ease-in-out infinite; --next-color:var(--special);
+  }
+  .activate-btn:hover{ filter:brightness(1.15); }
   .equip-badge{
     position:absolute; top:2px; right:2px; width:14px; height:14px; border-radius:50%;
     background:var(--equip); color:#fff; font-size:9px; display:flex; align-items:center;
@@ -229,6 +257,7 @@
   .log-line.heal{ color:var(--heal); }
   .log-line.trap{ color:var(--trap); font-weight:600; }
   .log-line.destroy{ color:var(--text-dim); font-style:italic; }
+  .log-line.idle{ color:var(--text-dim); opacity:.75; }
   .log-line.meta{ color:var(--text-dim); border-top:1px dashed var(--line); padding-top:4px; margin-top:2px; }
   .log-line.win{ color:var(--text); font-weight:700; }
   .log-line .t{ color:var(--text-dim); margin-right:4px; }
@@ -250,7 +279,7 @@
     html,body{ overflow-y:auto; }
     .battlefield{ flex-direction:column; overflow-y:auto; }
     .panel{ flex:0 0 auto; max-height:none; }
-    .section{ min-height:120px; }
+    .row.hand-row{ overflow-y:visible; }
     .center-col{ flex:0 0 auto; order:3; height:320px; }
   }
 </style>
@@ -264,6 +293,7 @@
       <span class="pill">Round <b id="roundLabel">1</b></span>
       <span class="pill" id="phasePill">Phase: <b id="phaseLabel">Setup</b></span>
       <span class="pill mono" id="tickPill" hidden>Tick <b id="tickLabel">0</b>/60</span>
+      <span class="pill next-pill" id="nextPill" hidden>Next: <b id="nextLabel"></b></span>
       <div class="progress-wrap" id="progressWrap" hidden><div class="progress-fill" id="progressFill"></div></div>
     </div>
     <div class="spacer"></div>
@@ -277,7 +307,6 @@
     <div class="panel-head">
       <div class="panel-title"><span class="dot"></span><span id="name-0"></span></div>
       <div class="pile-pills">
-        <span class="pile-pill mono" id="res-0"></span>
         <span class="pile-pill mono" id="deck-0"></span>
         <span class="pile-pill mono" id="grave-0"></span>
       </div>
@@ -317,7 +346,6 @@
     <div class="panel-head">
       <div class="panel-title"><span class="dot"></span><span id="name-1"></span></div>
       <div class="pile-pills">
-        <span class="pile-pill mono" id="res-1"></span>
         <span class="pile-pill mono" id="deck-1"></span>
         <span class="pile-pill mono" id="grave-1"></span>
       </div>
@@ -367,46 +395,46 @@
       effect:'Every 20 ticks, hits the nearest enemy unit, or a structure if none remain, for 10.' },
     healer:   { key:'healer',   type:'unit', unitType:'healer',   name:'Medic',   icon:'✚', heal:10,  hp:15, cooldown:20,
       effect:'Every 20 ticks, heals whichever own structure or unit is most wounded (by %) for 10.' },
-    mirror:   { key:'mirror',   type:'trap',                      name:'Mirror Wall', icon:'◈',
-      effect:'The first time an enemy attack lands on your side, negates it and destroys every enemy Striker.' },
+    mirror:   { key:'mirror',   type:'trap', manualArm:true,      name:'Mirror Wall', icon:'◈',
+      effect:'Dormant until you activate it during the battle. Once active, negates the next enemy attack on your side and destroys every enemy Striker.' },
 
     gravedigger:  { key:'gravedigger',  type:'unit', unitType:'special', name:'Gravedigger',  icon:'Ω', hp:16, cooldown:20, startCharges:1, usesCharges:true,
       effect:'1 charge. When spent, fires once for every card in your graveyard, 4 damage each.' },
     undertaker:   { key:'undertaker',   type:'unit', unitType:'special', name:'Undertaker',   icon:'⛧', hp:14, cooldown:20, usesCharges:true,
       effect:'Gains 1 charge whenever one of your units dies. Spend 2: return a unit card from your graveyard to hand.' },
     predator:     { key:'predator',     type:'unit', unitType:'attacker', name:'Predator',    icon:'♦', power:16, hp:18, cooldown:20,
-      effect:'Powerful attacker (16 power). Destroys itself if your Resources ever fall below 3.' },
+      effect:'Powerful attacker (16 power).' },
     extortionist: { key:'extortionist', type:'unit', unitType:'passive', name:'Extortionist', icon:'¤', hp:14, cooldown:Infinity,
-      effect:'Whenever the opponent activates a trap, continuous, or special ability, they pay you 1 Resource.' },
+      effect:'Whenever the opponent activates a trap, continuous, or special ability, one of your units gains 1 charge.' },
     bodyguard:    { key:'bodyguard',    type:'unit', unitType:'passive', name:'Bodyguard',    icon:'⛨', hp:22, cooldown:Infinity,
       effect:'May redirect an attack aimed at another of your units or structures onto itself instead.' },
     scavenger:    { key:'scavenger',    type:'unit', unitType:'passive', name:'Scavenger',    icon:'↻', hp:15, cooldown:Infinity,
       effect:'Whenever any unit dies (either side), may take its unclaimed equip.' },
     parasite:     { key:'parasite',     type:'unit', unitType:'special', name:'Parasite',     icon:'☣', hp:8,  cooldown:20, usesCharges:true,
-      effect:'Attaches to another of your units. Mirrors every charge that unit gains from then on.' },
+      effect:'Choose one of your other units as its host when placed. Mirrors every charge the host gains from then on.' },
     martyr:       { key:'martyr',       type:'unit', unitType:'attacker', name:'Martyr',      icon:'✟', power:9, hp:12, cooldown:20,
       effect:'Weak attacker (9 power). If destroyed by the opponent, gives another of your units 2 charges.' },
-    loadedgun:    { key:'loadedgun',    type:'unit', unitType:'special', name:'Loaded Gun',   icon:'☍', hp:10, cooldown:20, startCharges:3, usesCharges:true,
-      effect:'3 charges. Spends 1 each cycle to deal 2 damage. Destroys itself at 0 charges.' },
+    loadedgun:    { key:'loadedgun',    type:'unit', unitType:'special', name:'Loaded Gun',   icon:'☍', hp:10, cooldown:Infinity, startCharges:3, usesCharges:true, activatable:true,
+      effect:'3 charges. Fire it yourself at any point during the battle: spends 1 charge to deal 2 damage. Destroys itself at 0 charges.' },
     mimic:        { key:'mimic',        type:'unit', unitType:'special', name:'Mimic',        icon:'❖', hp:12, cooldown:20, startCharges:1, usesCharges:true,
       effect:"1 charge. Spend it to copy and immediately use another of your unit's action." },
 
-    donation:          { key:'donation',          type:'trap', name:'Donation',           icon:'☞',
-      effect:"The first time you're attacked, gives your weakest unit to the opponent's board." },
-    liquidator:        { key:'liquidator',        type:'trap', name:'Liquidator',         icon:'⚗',
-      effect:"The first time you're attacked, destroys your strongest unit to convert its HP/charges/equip into Resources." },
+    donation:          { key:'donation',          type:'trap', manualFire:true, name:'Donation',    icon:'☞',
+      effect:"Activate it during the battle: gives your weakest unit to the opponent's board." },
+    liquidator:        { key:'liquidator',        type:'trap', manualFire:true, name:'Liquidator', icon:'⚗',
+      effect:"Activate it during the battle: destroys your strongest unit and pays out its HP/charges/equip as charges to your next-strongest unit." },
     mutualdestruction: { key:'mutualdestruction', type:'trap', name:'Mutual Destruction', icon:'⇄',
       effect:"The first time you're attacked, you and the opponent each pick a unit to swap control of, then both attack." },
-    standoff:          { key:'standoff',          type:'trap', name:'Standoff',           icon:'⚖',
-      effect:"The first time you're attacked, both sides bid Resources; the higher bid draws 2 cards, both pay." },
+    standoff:          { key:'standoff',          type:'trap', manualFire:true, name:'Standoff',    icon:'⚖',
+      effect:"Activate it during the battle: both sides bid charges from their units; the higher bid draws 2 cards, both pay." },
     repossess:         { key:'repossess',         type:'trap', name:'Repossess',          icon:'⇦',
       effect:"The first time you're attacked, reclaims a unit you originally owned from the opponent's board." },
     lastwill:          { key:'lastwill',          type:'trap', name:"Last Will",          icon:'☠',
       effect:'When one of your units would die, choose: save it at 1 HP, or let it die and draw 2 cards.' },
     hijack:            { key:'hijack',            type:'trap', name:'Hijack',             icon:'⚡',
       effect:"When the opponent activates a charge ability, spend 1 of your charges to redirect it onto their own unit." },
-    cannibalize:       { key:'cannibalize',       type:'trap', name:'Cannibalize',        icon:'⌇',
-      effect:"The first time you're attacked, destroys your weakest unit to fully transfer its HP and charges to your strongest." },
+    cannibalize:       { key:'cannibalize',       type:'trap', manualFire:true, name:'Cannibalize', icon:'⌇',
+      effect:"Activate it during the battle: destroys your weakest unit to fully transfer its HP and charges to your strongest." },
 
     deathless:       { key:'deathless',       type:'equip', name:'Deathless',           icon:'♞',
       effect:'Equip. Destroys itself instead of letting the equipped unit die, once.' },
@@ -461,7 +489,6 @@
       deck: buildDeck(),
       hand: [],
       grave: [],
-      resources: 5,
       summonCount: 0,
       lastAction: null,
       structures: Array.from({length:STRUCTURE_COUNT}, function(){ return {hp:STRUCTURE_HP, maxHp:STRUCTURE_HP, alive:true}; }),
@@ -502,7 +529,7 @@
   function freshState(){
     var s = {
       round: 1, phase: 'setup', tick: 0,
-      selected: null, inspected: null, winner: null, log: [], graveOpen: [false,false],
+      selected: null, attaching: null, inspected: null, winner: null, log: [], graveOpen: [false,false],
       pendingChoice: null, tickQueue: [], tickQueuePos: 0,
       players: [newPlayer('Player 1'), newPlayer('Player 2')]
     };
@@ -521,29 +548,60 @@
     state.phase = 'simulating';
     state.tick = 0;
     state.selected = null;
+    state.attaching = null;
     addLog('Round ' + state.round + ': boards revealed. Battle begins. Press Step to advance.', 'meta');
     render();
   }
 
-  function buildTickQueue(){
-    var t = ++state.tick;
+  // ---------- Slot priority ----------
+  // Every slot has a priority number; lower acts first when actions tie on the same tick.
+  // One side holds the odd numbers for its unit slots (1,3,5,7,9) and the even numbers for its
+  // trap/field slots (2,4,6,...); the other side gets the reverse. Which side is "odd" swaps each round.
+  function oddSide(){ return (state.round + 1) % 2; }
+
+  function slotPriority(side, zone, idx){
+    var unitsOdd = side === oddSide();
+    if (zone === 'unit') return 2 * idx + (unitsOdd ? 1 : 2);
+    var pos = zone === 'trap' ? idx : TRAP_SLOTS + idx;
+    return 2 * pos + (unitsOdd ? 2 : 1);
+  }
+
+  // Actors scheduled for tick t, ordered by slot priority.
+  function queueForTick(t){
     var queue = [];
     for (var side = 0; side < 2; side++){
       var player = state.players[side];
       for (var i = 0; i < player.units.length; i++){
         var u = player.units[i];
-        if (u && u.alive && isFinite(u.card.cooldown) && t % u.card.cooldown === 0) queue.push({ side: side, idx: i });
+        if (u && u.alive && isFinite(u.card.cooldown) && t % u.card.cooldown === 0) queue.push({ side: side, idx: i, prio: slotPriority(side, 'unit', i) });
+      }
+      for (var j = 0; j < player.continuous.length; j++){
+        var cc = player.continuous[j];
+        if (cc && cc.card.key === 'blackbox' && (cc.charges || 0) >= 3) queue.push({ side: side, continuousIdx: j, prio: slotPriority(side, 'continuous', j) });
       }
     }
-    for (var side2 = 0; side2 < 2; side2++){
-      var player2 = state.players[side2];
-      for (var j = 0; j < player2.continuous.length; j++){
-        var cc = player2.continuous[j];
-        if (cc && cc.card.key === 'blackbox' && (cc.charges || 0) >= 3) queue.push({ side: side2, continuousIdx: j });
-      }
-    }
-    state.tickQueue = queue;
+    queue.sort(function(a, b){ return a.prio - b.prio; });
+    return queue;
+  }
+
+  function buildTickQueue(){
+    state.tickQueue = queueForTick(++state.tick);
     state.tickQueuePos = 0;
+  }
+
+  // The action the next Step click will resolve: the rest of the current tick's queue, or the first
+  // actor of the next tick that has one. Null when nothing is left this round or a choice is pending.
+  function peekNextActor(){
+    if (state.phase !== 'simulating' || state.pendingChoice) return null;
+    if (state.tickQueue && state.tickQueuePos < state.tickQueue.length){
+      var item = state.tickQueue[state.tickQueuePos];
+      return { side: item.side, idx: item.idx, continuousIdx: item.continuousIdx, tick: state.tick };
+    }
+    for (var t = state.tick + 1; t <= SIM_TICKS; t++){
+      var q = queueForTick(t);
+      if (q.length) return { side: q[0].side, idx: q[0].idx, continuousIdx: q[0].continuousIdx, tick: t };
+    }
+    return null;
   }
 
   function processQueueItem(item){
@@ -556,6 +614,7 @@
   // Processes exactly one queued action from the current tick, then does the end-of-queue
   // bookkeeping (game over / end of round). Remaining actions wait for the next Step click.
   function drainQueue(){
+    if (state.manualPause){ state.manualPause = false; render(); return; }
     if (state.tickQueuePos < state.tickQueue.length){
       var item = state.tickQueue[state.tickQueuePos++];
       var result = processQueueItem(item);
@@ -636,14 +695,42 @@
     return -1;
   }
 
+  // Charges are pooled across a player's living units (see tryHijack): these helpers read and spend that pool.
+  function totalCharges(player){
+    var sum = 0;
+    player.units.forEach(function(u){ if (u && u.alive) sum += (u.charges || 0); });
+    return sum;
+  }
+
+  function spendCharges(player, amount){
+    for (var i = 0; i < player.units.length && amount > 0; i++){
+      var u = player.units[i];
+      if (!u || !u.alive || !(u.charges > 0)) continue;
+      var take = Math.min(u.charges, amount);
+      u.charges -= take;
+      amount -= take;
+    }
+  }
+
+  // Prefers a unit that can actually spend charges; otherwise any living unit can hold them for Hijack / Standoff.
+  function findChargeRecipient(player, excludeIdx){
+    for (var i = 0; i < player.units.length; i++){
+      var u = player.units[i];
+      if (i !== excludeIdx && u && u.alive && u.card.usesCharges) return i;
+    }
+    return findOtherLivingUnit(player, excludeIdx);
+  }
+
   function chargeExtortion(activatingSide){
     var other = 1 - activatingSide;
     var op = state.players[other];
     var count = 0;
     op.units.forEach(function(u){ if (u && u.alive && u.card.key === 'extortionist') count++; });
     for (var i = 0; i < count; i++){
-      state.players[activatingSide].resources = Math.max(0, state.players[activatingSide].resources - 1);
-      op.resources += 1;
+      var idx = findChargeRecipient(op, -1);
+      if (idx === -1) return;
+      gainCharges(other, idx, 1);
+      addLog(op.name + "'s Extortionist extracts 1 charge for " + op.units[idx].card.name + '.', 'trap');
     }
   }
 
@@ -868,7 +955,11 @@
     var TRAP_KEYS = ['mirror', 'donation', 'liquidator', 'mutualdestruction', 'standoff', 'repossess', 'cannibalize'];
     var foundIdx = -1;
     for (var i = 0; i < dp.traps.length; i++){
-      if (dp.traps[i] && TRAP_KEYS.indexOf(dp.traps[i].card.key) !== -1){ foundIdx = i; break; }
+      var tr = dp.traps[i];
+      if (!tr || TRAP_KEYS.indexOf(tr.card.key) === -1) continue;
+      if (tr.card.manualFire) continue;              // only ever fired by the player
+      if (tr.card.manualArm && !tr.primed) continue; // player hasn't activated it yet
+      foundIdx = i; break;
     }
     if (foundIdx === -1) return false;
     chargeExtortion(defSide);
@@ -906,7 +997,7 @@
       var inst = dp.units[idx];
       dp.units[idx] = null;
       ap.units[emptyIdx] = inst;
-      addLog(dp.name + ' is forced to donate ' + inst.card.name + ' to ' + ap.name + '!', 'trap');
+      addLog(dp.name + ' donates ' + inst.card.name + ' to ' + ap.name + '.', 'trap');
     }
     consumeTrap(defSide, foundIdx);
   }
@@ -915,11 +1006,13 @@
     var dp = state.players[defSide];
     var idx = findStrongestUnit(dp);
     if (idx === -1){ addLog(dp.name + "'s Liquidator fizzles — no unit to liquidate.", 'trap'); consumeTrap(defSide, foundIdx); return; }
+    var recipient = findStrongestUnit(dp, idx);
+    if (recipient === -1){ addLog(dp.name + "'s Liquidator fizzles — no unit to receive the payout.", 'trap'); consumeTrap(defSide, foundIdx); return; }
     var u = dp.units[idx];
     var hadEquip = !!u.equip;
     var gained = Math.floor(u.hp / 2) + (u.charges || 0) + (hadEquip ? 2 : 0);
-    dp.resources += gained;
-    addLog(dp.name + "'s Liquidator cashes out " + u.card.name + ' for ' + gained + ' resources.', 'trap');
+    gainCharges(defSide, recipient, gained);
+    addLog(dp.name + "'s Liquidator cashes out " + u.card.name + ' for ' + gained + ' charges, paid to ' + dp.units[recipient].card.name + '.', 'trap');
     destroyUnit(defSide, idx, {});
     consumeTrap(defSide, foundIdx);
   }
@@ -960,7 +1053,7 @@
   }
 
   function bidOptionsFor(player){
-    var r = player.resources;
+    var r = totalCharges(player);
     var presets = [0, 1, 2, 3, 5];
     var set = [];
     presets.forEach(function(v){ if (v <= r && set.indexOf(v) === -1) set.push(v); });
@@ -975,19 +1068,19 @@
     var defOpts = bidOptionsFor(dp);
     pauseForChoice({
       title: 'Standoff',
-      message: dp.name + ', choose your bid (Resources: ' + dp.resources + ').',
+      message: dp.name + ', choose your bid (Charges: ' + totalCharges(dp) + ').',
       options: defOpts.map(function(v){
-        return { label: (v === dp.resources && v > 0) ? ('All (' + v + ')') : String(v), onClick: function(){
+        return { label: (v === totalCharges(dp) && v > 0) ? ('All (' + v + ')') : String(v), onClick: function(){
           var defBid = v;
           var atkOpts = bidOptionsFor(ap);
           pauseForChoice({
             title: 'Standoff',
-            message: ap.name + ', choose your bid (Resources: ' + ap.resources + ').',
+            message: ap.name + ', choose your bid (Charges: ' + totalCharges(ap) + ').',
             options: atkOpts.map(function(v2){
-              return { label: (v2 === ap.resources && v2 > 0) ? ('All (' + v2 + ')') : String(v2), onClick: function(){
+              return { label: (v2 === totalCharges(ap) && v2 > 0) ? ('All (' + v2 + ')') : String(v2), onClick: function(){
                 var atkBid = v2;
-                dp.resources = Math.max(0, dp.resources - defBid);
-                ap.resources = Math.max(0, ap.resources - atkBid);
+                spendCharges(dp, defBid);
+                spendCharges(ap, atkBid);
                 if (defBid > atkBid){ drawCards(dp, 2); addLog(dp.name + ' wins the Standoff (' + defBid + ' vs ' + atkBid + ') and draws 2 cards.', 'trap'); }
                 else if (atkBid > defBid){ drawCards(ap, 2); addLog(ap.name + ' wins the Standoff (' + atkBid + ' vs ' + defBid + ') and draws 2 cards.', 'trap'); }
                 else { addLog('The Standoff ends in a tie (' + defBid + ' vs ' + atkBid + '). Neither side draws.', 'trap'); }
@@ -1088,15 +1181,15 @@
   function doAttackerAction(side, slotIdx, u, t){
     var card = u.card;
     var selfPlayer = state.players[side];
-    if (card.key === 'predator' && selfPlayer.resources < 3){
-      addLog('t' + t + ': ' + selfPlayer.name + "'s Predator runs out of resources to sustain itself and collapses.", 'destroy');
-      destroyUnit(side, slotIdx, {});
-      return;
-    }
     var power = card.power;
     if (u.equip && u.equip.card.key === 'veteranstandard') power += selfPlayer.summonCount;
     selfPlayer.lastAction = { kind: 'attack', amount: power };
     return resolveAttackHit(side, 1 - side, power, selfPlayer.name + "'s " + card.name, t);
+  }
+
+  // Every scheduled action leaves a log line, even when it has nothing to do.
+  function logIdle(side, name, t, reason){
+    addLog('t' + t + ': ' + state.players[side].name + "'s " + name + ' takes its turn — ' + reason + '.', 'idle');
   }
 
   function doHealerAction(side, slotIdx, u, t){
@@ -1104,12 +1197,12 @@
     var selfPlayer = state.players[side];
     var best = findHealTarget(selfPlayer);
     selfPlayer.lastAction = { kind: 'heal', amount: card.heal };
-    if (!best) return;
+    if (!best){ logIdle(side, card.name, t, 'nothing is wounded'); return; }
     applyHeal(selfPlayer, best, card.heal, selfPlayer.name + "'s " + card.name, t);
   }
 
   function doGravedigger(side, slotIdx, u, t){
-    if (!(u.charges > 0)) return;
+    if (!(u.charges > 0)){ logIdle(side, u.card.name, t, 'no charge to spend'); return; }
     var hijacked = tryHijack(side);
     var selfPlayer = state.players[side];
     var graveCount = selfPlayer.grave.length;
@@ -1123,7 +1216,7 @@
   }
 
   function doUndertaker(side, slotIdx, u, t){
-    if (!(u.charges >= 2)) return;
+    if (!(u.charges >= 2)){ logIdle(side, u.card.name, t, 'needs 2 charges, has ' + (u.charges || 0)); return; }
     var hijacked = tryHijack(side);
     var selfPlayer = state.players[side];
     if (hijacked !== null){
@@ -1133,7 +1226,7 @@
     }
     var foundIdx = -1;
     for (var i = selfPlayer.grave.length - 1; i >= 0; i--){ if (selfPlayer.grave[i].type === 'unit'){ foundIdx = i; break; } }
-    if (foundIdx === -1) return;
+    if (foundIdx === -1){ logIdle(side, u.card.name, t, 'no unit in the graveyard to recall'); return; }
     u.charges -= 2;
     var card = selfPlayer.grave.splice(foundIdx, 1)[0];
     selfPlayer.hand.push(card);
@@ -1141,24 +1234,30 @@
   }
 
   function doParasite(side, slotIdx, u, t){
-    if (u.hostSlot !== null && u.hostSlot !== undefined) return;
     var selfPlayer = state.players[side];
+    if (u.hostSlot !== null && u.hostSlot !== undefined){
+      var host = selfPlayer.units[u.hostSlot];
+      logIdle(side, u.card.name, t, 'stays attached to ' + (host ? host.card.name : 'its host'));
+      return;
+    }
     for (var i = 0; i < selfPlayer.units.length; i++){
       if (i !== slotIdx && selfPlayer.units[i] && selfPlayer.units[i].alive){
         u.hostSlot = i;
-        addLog('t' + t + ': ' + selfPlayer.name + "'s Parasite attaches to " + selfPlayer.units[i].card.name + '.', 'meta');
+        addLog('t' + t + ': ' + selfPlayer.name + "'s Parasite had no host, so it latches onto " + selfPlayer.units[i].card.name + '.', 'meta');
         return;
       }
     }
+    logIdle(side, u.card.name, t, 'no unit to attach to');
   }
 
   function doLoadedGun(side, slotIdx, u, t){
-    if (!(u.charges > 0)) return;
+    if (!(u.charges > 0)){ logIdle(side, u.card.name, t, 'no charge to spend'); return; }
     var hijacked = tryHijack(side);
     u.charges -= 1;
     var selfPlayer = state.players[side];
     var label = selfPlayer.name + "'s Loaded Gun";
     var result;
+    addLog('t' + t + ': ' + selfPlayer.name + ' fires Loaded Gun (' + u.charges + ' charge(s) left).', 'meta');
     if (hijacked !== null) hitOwnWeakest(hijacked, 2, label + ' (hijacked)', t);
     else result = resolveAttackHit(side, 1 - side, 2, label, t);
     if (u.charges <= 0) destroyUnit(side, slotIdx, {});
@@ -1166,14 +1265,14 @@
   }
 
   function doMimic(side, slotIdx, u, t){
-    if (!(u.charges > 0)) return;
+    if (!(u.charges > 0)){ logIdle(side, u.card.name, t, 'no charge to spend'); return; }
     var hijacked = tryHijack(side);
     var selfPlayer = state.players[side];
     var templateIdx = -1;
     for (var i = 0; i < selfPlayer.units.length; i++){
       if (i !== slotIdx && selfPlayer.units[i] && selfPlayer.units[i].alive){ templateIdx = i; break; }
     }
-    if (templateIdx === -1) return;
+    if (templateIdx === -1){ logIdle(side, u.card.name, t, 'no unit to copy'); return; }
     u.charges -= 1;
     var template = selfPlayer.units[templateIdx].card;
     var label = selfPlayer.name + "'s Mimic (as " + template.name + ')';
@@ -1191,8 +1290,11 @@
     } else if (template.unitType === 'healer'){
       var best = findHealTarget(selfPlayer);
       if (best){ applyHeal(selfPlayer, best, template.heal, label, t); selfPlayer.lastAction = { kind: 'heal', amount: template.heal }; }
+      else logIdle(side, label, t, 'nothing is wounded');
+    } else {
+      // Mimic only copies Striker/Medic-style templates in this prototype, not other specials.
+      logIdle(side, label, t, 'cannot copy that kind of unit');
     }
-    // Mimic only copies Striker/Medic-style templates in this prototype, not other specials.
   }
 
   function resolveBlackBox(side, continuousIdx){
@@ -1202,7 +1304,7 @@
     if ((slot.charges || 0) < 3) return;
     chargeExtortion(side);
     slot.charges -= 3;
-    if (!p.lastAction) return;
+    if (!p.lastAction){ logIdle(side, slot.card.name, state.tick, 'no attack or heal to replay'); return; }
     var label = p.name + "'s Black Box (replay)";
     if (p.lastAction.kind === 'attack'){
       var r = resolveAttackHit(side, 1 - side, p.lastAction.amount, label, state.tick);
@@ -1211,6 +1313,56 @@
       var best = findHealTarget(p);
       if (best) applyHeal(p, best, p.lastAction.amount, label, state.tick);
     }
+  }
+
+  // ---------- Player-activated abilities ----------
+  function canActivate(side, idx){
+    if (state.phase !== 'simulating' || state.pendingChoice) return false;
+    var u = state.players[side].units[idx];
+    return !!(u && u.alive && u.card.activatable && (u.charges || 0) > 0);
+  }
+
+  function canActivateTrap(side, idx){
+    if (state.phase !== 'simulating' || state.pendingChoice) return false;
+    var tr = state.players[side].traps[idx];
+    if (!tr) return false;
+    return !!(tr.card.manualFire || (tr.card.manualArm && !tr.primed));
+  }
+
+  function activateTrap(side, idx){
+    if (!canActivateTrap(side, idx)) return;
+    var tr = state.players[side].traps[idx];
+    if (tr.card.manualArm){
+      tr.primed = true;
+      addLog('t' + state.tick + ': ' + state.players[side].name + ' activates ' + tr.card.name + ' — it will catch the next enemy attack.', 'trap');
+      render();
+      return;
+    }
+    // manualFire: resolves immediately
+    addLog('t' + state.tick + ': ' + state.players[side].name + ' activates ' + tr.card.name + '.', 'trap');
+    chargeExtortion(side);
+    var result;
+    state.manualPause = true; // if this opens a choice, resuming should not consume a queued Step
+    switch (tr.card.key){
+      case 'liquidator': resolveLiquidator(side, idx); break;
+      case 'cannibalize': resolveCannibalize(side, idx); break;
+      case 'standoff': result = resolveStandoff(side, 1 - side, idx); break;
+      case 'donation': resolveDonation(side, 1 - side, idx); break;
+    }
+    if (result !== 'PAUSED') state.manualPause = false;
+    render();
+  }
+
+  function activateUnit(side, idx){
+    if (!canActivate(side, idx)) return;
+    var u = state.players[side].units[idx];
+    var result;
+    state.manualPause = true; // if this opens a choice, resuming should not consume a queued Step
+    switch (u.card.key){
+      case 'loadedgun': result = doLoadedGun(side, idx, u, state.tick); break;
+    }
+    if (result !== 'PAUSED') state.manualPause = false;
+    render();
   }
 
   // ---------- Dispatcher ----------
@@ -1241,7 +1393,7 @@
   function continueToNextRound(){
     if (state.phase !== 'roundEnd') return;
     state.round++;
-    state.players.forEach(function(p){ p.resources += 1; drawCards(p, DRAW_PER_ROUND); });
+    state.players.forEach(function(p){ drawCards(p, DRAW_PER_ROUND); });
     state.phase = 'setup';
     state.tick = 0;
     render();
@@ -1250,6 +1402,7 @@
   // ---------- Setup interactions ----------
   function onHandCardClick(side, idx){
     if (state.phase !== 'setup') return;
+    state.attaching = null;
     if (state.selected && state.selected.side === side && state.selected.idx === idx){
       state.selected = null;
     } else {
@@ -1266,6 +1419,17 @@
 
     if (zone === 'unit'){
       var existingUnit = player.units[idx];
+      var att = state.attaching;
+      if (att && att.side === side){
+        // Choosing a host for the Parasite in att.idx.
+        if (idx === att.idx){ state.attaching = null; render(); return; }
+        if (existingUnit && existingUnit.alive){
+          player.units[att.idx].hostSlot = idx;
+          state.attaching = null;
+          render();
+        }
+        return;
+      }
       if (existingUnit && selCard && selCard.type === 'equip' && !existingUnit.equip){
         player.hand.splice(sel.idx, 1);
         existingUnit.equip = { card: selCard, storedCharges: 0 };
@@ -1274,24 +1438,16 @@
         return;
       }
       if (existingUnit){
-        if (existingUnit.equip) player.grave.push(existingUnit.equip.card);
-        player.hand.push(existingUnit.card);
-        player.units[idx] = null;
-        state.selected = null;
-        render();
+        // Clicking a placed Parasite starts (or restarts) host selection; removal is a double-click.
+        if (existingUnit.card.key === 'parasite'){ state.selected = null; state.attaching = { side: side, idx: idx }; render(); }
         return;
       }
       if (selCard && selCard.type === 'unit'){
         player.hand.splice(sel.idx, 1);
-        var hostSlot = null;
-        if (selCard.key === 'parasite'){
-          for (var i = 0; i < player.units.length; i++){
-            if (i !== idx && player.units[i] && player.units[i].alive){ hostSlot = i; break; }
-          }
-        }
-        player.units[idx] = { card: selCard, hp: selCard.hp, maxHp: selCard.hp, alive: true, charges: selCard.startCharges || 0, equip: null, originalOwner: side, hostSlot: hostSlot };
+        player.units[idx] = { card: selCard, hp: selCard.hp, maxHp: selCard.hp, alive: true, charges: selCard.startCharges || 0, equip: null, originalOwner: side, hostSlot: null };
         player.summonCount += 1;
         state.selected = null;
+        if (selCard.key === 'parasite') state.attaching = { side: side, idx: idx }; // go straight to picking a host
         render();
         return;
       }
@@ -1299,15 +1455,9 @@
     }
 
     if (zone === 'trap' || zone === 'continuous'){
+      state.attaching = null;
       var arr = zone === 'trap' ? player.traps : player.continuous;
-      var existing = arr[idx];
-      if (existing){
-        player.hand.push(existing.card);
-        arr[idx] = null;
-        state.selected = null;
-        render();
-        return;
-      }
+      if (arr[idx]) return; // occupied: removal is a double-click (see removePlacedCard)
       if (!selCard) return;
       if (zone === 'trap' && selCard.type !== 'trap') return;
       if (zone === 'continuous' && selCard.type !== 'continuous') return;
@@ -1316,6 +1466,29 @@
       state.selected = null;
       render();
     }
+  }
+
+  // Double-click (or Delete/Backspace) on a placed card during setup returns it to hand.
+  function removePlacedCard(side, zone, idx){
+    if (state.phase !== 'setup') return;
+    var player = state.players[side];
+    if (zone === 'unit'){
+      var u = player.units[idx];
+      if (!u) return;
+      if (u.equip) player.hand.push(u.equip.card); // equip comes back to hand with its unit
+      player.hand.push(u.card);
+      player.units[idx] = null;
+      player.units.forEach(function(uu){ if (uu && uu.hostSlot === idx) uu.hostSlot = null; });
+    } else {
+      var arr = zone === 'trap' ? player.traps : player.continuous;
+      if (!arr[idx]) return;
+      player.hand.push(arr[idx].card);
+      arr[idx] = null;
+    }
+    state.selected = null;
+    state.attaching = null;
+    if (state.inspected && state.inspected.loc && state.inspected.loc.side === side && state.inspected.loc.zone === zone && state.inspected.loc.idx === idx) state.inspected = null;
+    render();
   }
 
   function autoPlaceCard(side, handIdx){
@@ -1375,7 +1548,8 @@
       if (!u || u.card.uid !== ins.card.uid) return null;
       var parts = ['On ' + p.name + "'s board (slot " + (loc.idx + 1) + ')', 'HP ' + u.hp + '/' + u.maxHp];
       if (ins.card.usesCharges) parts.push('Charges ' + (u.charges || 0));
-      if (isFinite(ins.card.cooldown) && (state.phase === 'simulating' || state.phase === 'roundEnd'))
+      if (ins.card.activatable) parts.push('Activate manually during battle');
+      else if (isFinite(ins.card.cooldown) && (state.phase === 'simulating' || state.phase === 'roundEnd'))
         parts.push('Next action in ' + (ins.card.cooldown - (state.tick % ins.card.cooldown)) + ' ticks');
       if (u.equip){
         var eq = 'Equipped: ' + u.equip.card.name;
@@ -1389,9 +1563,10 @@
       var arr = loc.zone === 'trap' ? p.traps : p.continuous;
       var inst = arr[loc.idx];
       if (!inst || inst.card.uid !== ins.card.uid) return null;
-      return loc.zone === 'trap'
-        ? ['Armed on ' + p.name + "'s side"]
-        : ['Active on ' + p.name + "'s side", 'Charges ' + (inst.charges || 0) + '/3'];
+      if (loc.zone === 'continuous') return ['Active on ' + p.name + "'s side", 'Charges ' + (inst.charges || 0) + '/3'];
+      if (inst.card.manualArm) return [(inst.primed ? 'Active' : 'Dormant') + ' on ' + p.name + "'s side", inst.primed ? 'Catches the next enemy attack' : 'Activate it during the battle'];
+      if (inst.card.manualFire) return ['Ready on ' + p.name + "'s side", 'Activate it during the battle'];
+      return ['Armed on ' + p.name + "'s side"];
     }
     if (loc.zone === 'hand'){
       var h = p.hand[loc.idx];
@@ -1451,6 +1626,11 @@
     return e;
   }
 
+  function prioBadge(side, zone, idx){
+    var n = slotPriority(side, zone, idx);
+    return '<div class="prio-badge mono" title="Priority ' + n + ' — lower acts first on ties">' + n + '</div>';
+  }
+
   function cardColorClass(card){
     if (card.type === 'trap' || card.type === 'continuous') return 'ctrap';
     if (card.type === 'equip') return 'cequip';
@@ -1499,27 +1679,38 @@
     if (!u){
       var validTarget = !!(selCard && selCard.type === 'unit');
       var slot = el('div', 'slot' + (validTarget ? ' valid-target' : ''), { tabindex:'0', role:'button', 'aria-label':'empty unit slot' });
-      slot.textContent = '+';
+      slot.innerHTML = prioBadge(side, 'unit', idx) + '+';
       slot.addEventListener('click', function(){ onSlotClick(side, 'unit', idx); });
       slot.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); onSlotClick(side, 'unit', idx); } });
       return slot;
     }
     var card = u.card;
-    var equipTarget = !!(selCard && selCard.type === 'equip' && !u.equip);
-    var c = el('div', 'card placed ' + card.key + ' ' + cardColorClass(card) + (interactive ? ' selectable' : '') + (equipTarget ? ' valid-target' : ''),
-      { tabindex:'0', role:'button', title: card.name + ' — ' + card.effect + (interactive ? ' (click to return to hand)' : '') });
+    var att = (interactive && state.attaching && state.attaching.side === side) ? state.attaching : null;
+    var equipTarget = !att && !!(selCard && selCard.type === 'equip' && !u.equip);
+    var hostTarget = !!(att && att.idx !== idx && u.alive);
+    var isAttaching = !!(att && att.idx === idx);
+    var isNext = !!(nextActor && nextActor.side === side && nextActor.idx === idx);
+    var c = el('div', 'card placed ' + card.key + ' ' + cardColorClass(card) + (interactive ? ' selectable' : '') + ((equipTarget || hostTarget) ? ' valid-target' : '') + (isAttaching ? ' is-selected' : '') + (isNext ? ' next-actor' : ''),
+      { tabindex:'0', role:'button', title: card.name + ' — ' + card.effect + (interactive ? ' (double-click to return to hand)' : '') });
     var pct = Math.max(0, u.hp / u.maxHp);
     var lines;
     if (card.unitType === 'attacker') lines = ['PWR ' + card.power, ''];
     else if (card.unitType === 'healer') lines = ['HEAL ' + card.heal, ''];
     else if (card.unitType === 'passive') lines = ['PASSIVE', ''];
     else lines = ['SPECIAL', ''];
+    if (card.key === 'parasite'){
+      var host = u.hostSlot != null ? player.units[u.hostSlot] : null;
+      lines[0] = host ? ('→ ' + host.card.name) : 'NO HOST';
+    }
     var chargePct = (state.phase === 'simulating' || state.phase === 'roundEnd' || state.phase === 'gameOver') && isFinite(card.cooldown)
       ? (state.tick % card.cooldown) / card.cooldown : 0;
-    var chargeLine = card.usesCharges ? ('<div class="stat mono">⚡' + (u.charges || 0) + '</div>') : '';
+    var chargeLine = (card.usesCharges || (u.charges || 0) > 0) ? ('<div class="stat mono">⚡' + (u.charges || 0) + '</div>') : '';
+    var activatable = canActivate(side, idx);
+    if (activatable) lines[0] = '<button class="activate-btn" type="button" title="Spend 1 charge now">Fire</button>';
     var equipBadge = u.equip ? ('<div class="equip-badge" title="' + u.equip.card.name + ' — ' + u.equip.card.effect + ' (click for details)">' + u.equip.card.icon + '</div>') : '';
     c.innerHTML =
-      equipBadge +
+      equipBadge + prioBadge(side, 'unit', idx) +
+      (isNext ? '<div class="next-tag">NEXT</div>' : '') +
       '<div class="icon">' + card.icon + '</div>' +
       '<div class="name">' + card.name + '</div>' +
       '<div class="stat mono">' + lines[0] + '</div>' +
@@ -1529,9 +1720,15 @@
       '<div class="charge-bar"><div class="charge-fill" style="width:' + (chargePct*100) + '%"></div></div>';
     var badgeEl = c.querySelector('.equip-badge');
     if (badgeEl) badgeEl.addEventListener('click', function(e){ e.stopPropagation(); inspectCard(u.equip.card, null); });
+    var fireBtn = c.querySelector('.activate-btn');
+    if (fireBtn) fireBtn.addEventListener('click', function(e){ e.stopPropagation(); activateUnit(side, idx); });
     c.addEventListener('click', function(){ inspectCard(card, { side: side, zone: 'unit', idx: idx }); if (interactive) onSlotClick(side, 'unit', idx); });
     if (interactive){
-      c.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); inspectCard(card, { side: side, zone: 'unit', idx: idx }); onSlotClick(side, 'unit', idx); } });
+      c.addEventListener('dblclick', function(){ removePlacedCard(side, 'unit', idx); });
+      c.addEventListener('keydown', function(e){
+        if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); inspectCard(card, { side: side, zone: 'unit', idx: idx }); onSlotClick(side, 'unit', idx); }
+        else if (e.key === 'Delete' || e.key === 'Backspace'){ e.preventDefault(); removePlacedCard(side, 'unit', idx); }
+      });
     }
     return c;
   }
@@ -1544,23 +1741,34 @@
       var validTarget = state.phase === 'setup' && state.selected && state.selected.side === side &&
         player.hand[state.selected.idx] && player.hand[state.selected.idx].type === zone;
       var slot = el('div', 'slot trap-slot' + (validTarget ? ' valid-target' : ''), { tabindex:'0', role:'button', 'aria-label':'empty ' + zone + ' slot' });
-      slot.textContent = '+';
+      slot.innerHTML = prioBadge(side, zone, idx) + '+';
       slot.addEventListener('click', function(){ onSlotClick(side, zone, idx); });
       slot.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); onSlotClick(side, zone, idx); } });
       return slot;
     }
     var card = inst.card;
     var interactive = state.phase === 'setup';
-    var c = el('div', 'card placed trap-card ' + card.key + ' ' + cardColorClass(card) + (interactive ? ' selectable' : ''),
-      { tabindex:'0', role:'button', title: card.name + ' — ' + card.effect + (interactive ? ' (click to return to hand)' : '') });
-    var statLine = zone === 'continuous' ? ('⚡' + (inst.charges || 0) + '/3') : 'ARMED';
+    var isNext = !!(zone === 'continuous' && nextActor && nextActor.side === side && nextActor.continuousIdx === idx);
+    var c = el('div', 'card placed trap-card ' + card.key + ' ' + cardColorClass(card) + (interactive ? ' selectable' : '') + (isNext ? ' next-actor' : ''),
+      { tabindex:'0', role:'button', title: card.name + ' — ' + card.effect + (interactive ? ' (double-click to return to hand)' : '') });
+    var statLine = zone === 'continuous' ? ('⚡' + (inst.charges || 0) + '/3')
+      : card.manualArm ? (inst.primed ? 'ACTIVE' : 'DORMANT') : card.manualFire ? 'READY' : 'ARMED';
+    if (zone === 'trap' && canActivateTrap(side, idx)) statLine = '<button class="activate-btn" type="button" title="Activate now: catches the next enemy attack">Activate</button>';
     c.innerHTML =
+      prioBadge(side, zone, idx) +
+      (isNext ? '<div class="next-tag">NEXT</div>' : '') +
       '<div class="icon">' + card.icon + '</div>' +
       '<div class="name">' + card.name + '</div>' +
       '<div class="stat mono">' + statLine + '</div>';
-    c.addEventListener('click', function(){ inspectCard(card, { side: side, zone: zone, idx: idx }); if (interactive) onSlotClick(side, zone, idx); });
+    var armBtn = c.querySelector('.activate-btn');
+    if (armBtn) armBtn.addEventListener('click', function(e){ e.stopPropagation(); activateTrap(side, idx); });
+    c.addEventListener('click', function(){ inspectCard(card, { side: side, zone: zone, idx: idx }); });
     if (interactive){
-      c.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); inspectCard(card, { side: side, zone: zone, idx: idx }); onSlotClick(side, zone, idx); } });
+      c.addEventListener('dblclick', function(){ removePlacedCard(side, zone, idx); });
+      c.addEventListener('keydown', function(e){
+        if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); inspectCard(card, { side: side, zone: zone, idx: idx }); }
+        else if (e.key === 'Delete' || e.key === 'Backspace'){ e.preventDefault(); removePlacedCard(side, zone, idx); }
+      });
     }
     return c;
   }
@@ -1578,7 +1786,6 @@
   function renderPlayerPanel(side){
     var p = state.players[side];
     document.getElementById('name-' + side).textContent = p.name;
-    document.getElementById('res-' + side).textContent = 'Res ' + p.resources;
     document.getElementById('deck-' + side).textContent = 'Deck ' + p.deck.length;
     var graveBtn = document.getElementById('grave-' + side);
     graveBtn.textContent = 'Grave ' + p.grave.length;
@@ -1605,6 +1812,8 @@
     structuresRow.innerHTML = '';
     for (var i = 0; i < STRUCTURE_COUNT; i++) structuresRow.appendChild(renderStructure(side, i));
 
+    var unitsLabel = document.getElementById('units-' + side).previousElementSibling;
+    unitsLabel.textContent = (state.attaching && state.attaching.side === side) ? 'Units — click a host for Parasite' : 'Units — lower # acts first';
     var unitsRow = document.getElementById('units-' + side);
     unitsRow.innerHTML = '';
     for (var u = 0; u < UNIT_SLOTS; u++) unitsRow.appendChild(renderUnitSlot(side, u));
@@ -1645,6 +1854,15 @@
     if (showTick){
       document.getElementById('tickLabel').textContent = state.tick;
       document.getElementById('progressFill').style.width = (state.tick / SIM_TICKS * 100) + '%';
+    }
+
+    var nextPill = document.getElementById('nextPill');
+    nextPill.hidden = !nextActor;
+    if (nextActor){
+      var np = state.players[nextActor.side];
+      var actorCard = nextActor.continuousIdx !== undefined ? np.continuous[nextActor.continuousIdx].card : np.units[nextActor.idx].card;
+      document.getElementById('nextLabel').textContent = np.name + "'s " + actorCard.name + ' @ t' + nextActor.tick;
+      nextPill.className = 'pill next-pill p' + (nextActor.side + 1);
     }
 
     var mainBtn = document.getElementById('mainActionBtn');
@@ -1702,7 +1920,9 @@
     });
   }
 
+  var nextActor = null;
   function render(){
+    nextActor = peekNextActor();
     renderHeader();
     renderPlayerPanel(0);
     renderPlayerPanel(1);
@@ -1711,6 +1931,7 @@
     renderChoiceOverlay();
   }
 
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && state.attaching){ state.attaching = null; render(); } });
   document.getElementById('resetBtn').addEventListener('click', resetGame);
   document.getElementById('inspectorClose').addEventListener('click', function(){ state.inspected = null; renderInspector(); });
   document.getElementById('overlayNewGame').addEventListener('click', resetGame);
