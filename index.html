@@ -427,8 +427,8 @@
       effect:"The first time you're attacked, you and the opponent each pick a unit to swap control of, then both attack." },
     standoff:          { key:'standoff',          type:'trap', manualFire:true, name:'Standoff',    icon:'⚖',
       effect:"Activate it during the battle: both sides bid charges from their units; the higher bid draws 2 cards, both pay." },
-    repossess:         { key:'repossess',         type:'trap', name:'Repossess',          icon:'⇦',
-      effect:"The first time you're attacked, reclaims a unit you originally owned from the opponent's board." },
+    repossess:         { key:'repossess',         type:'trap', manualFire:true, name:'Repossess',          icon:'⇦',
+      effect:"Activate it during the battle: reclaims a unit you originally owned from the opponent's board." },
     lastwill:          { key:'lastwill',          type:'trap', name:"Last Will",          icon:'☠',
       effect:'When one of your units would die, choose: save it at 1 HP, or let it die and draw 2 cards.' },
     hijack:            { key:'hijack',            type:'trap', name:'Hijack',             icon:'⚡',
@@ -1348,6 +1348,7 @@
       case 'cannibalize': resolveCannibalize(side, idx); break;
       case 'standoff': result = resolveStandoff(side, 1 - side, idx); break;
       case 'donation': resolveDonation(side, 1 - side, idx); break;
+      case 'repossess': resolveRepossess(side, 1 - side, idx); break;
     }
     if (result !== 'PAUSED') state.manualPause = false;
     render();
