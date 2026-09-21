@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Structure Siege</title>
+<title>fd6</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
@@ -288,7 +288,7 @@
 
 <header class="topbar">
   <div class="topbar-inner">
-    <div class="brand">Structure Siege<small>hotseat TCG battle-sim prototype</small></div>
+    <div class="brand">fd6<small>hotseat TCG battle-sim prototype</small></div>
     <div class="status">
       <span class="pill">Round <b id="roundLabel">1</b></span>
       <span class="pill" id="phasePill">Phase: <b id="phaseLabel">Setup</b></span>
@@ -412,8 +412,8 @@
       effect:'Every 20 ticks, attacks for 5. Whenever any unit dies (either side), may take its unclaimed equip.' },
     parasite:     { key:'parasite',     type:'unit', unitType:'special', name:'Parasite',     icon:'☣', hp:8,  cooldown:20, usesCharges:true,
       effect:'Choose one of your other units as its host when placed. Mirrors every charge the host gains from then on.' },
-    martyr:       { key:'martyr',       type:'unit', unitType:'attacker', name:'Martyr',      icon:'✟', power:9, hp:12, cooldown:20,
-      effect:'Weak attacker (9 power). If destroyed by the opponent, gives another of your units 2 charges.' },
+    martyr:       { key:'martyr',       type:'unit', unitType:'special', name:'Martyr',      icon:'✟', hp:12, cooldown:Infinity, startCharges:1, usesCharges:true, activatable:true,
+      effect:'1 charge. Activate it during the battle: give a target unit 2 charges, then Martyr destroys itself.' },
     loadedgun:    { key:'loadedgun',    type:'unit', unitType:'special', name:'Loaded Gun',   icon:'☍', hp:10, cooldown:Infinity, startCharges:3, usesCharges:true, activatable:true,
       effect:'3 charges. Fire it yourself at any point during the battle: spends 1 charge to deal 2 damage. Destroys itself at 0 charges.' },
     mimic:        { key:'mimic',        type:'unit', unitType:'special', name:'Mimic',        icon:'❖', hp:12, cooldown:20, startCharges:1, usesCharges:true,
@@ -422,7 +422,7 @@
     donation:          { key:'donation',          type:'trap', manualFire:true, name:'Donation',    icon:'☞',
       effect:"Activate it during the battle: gives your weakest unit to the opponent's board." },
     liquidator:        { key:'liquidator',        type:'trap', manualFire:true, name:'Liquidator', icon:'⚗',
-      effect:"Activate it during the battle: destroys your strongest unit and pays out its HP/charges/equip as charges to your next-strongest unit." },
+      effect:"Activate it during the battle: choose one of your units to sacrifice, then another to receive 1 charge for every 5 HP it had." },
     mutualdestruction: { key:'mutualdestruction', type:'trap', name:'Mutual Destruction', icon:'⇄',
       effect:"The first time you're attacked, you and the opponent each pick a unit to swap control of, then both attack." },
     standoff:          { key:'standoff',          type:'trap', manualFire:true, name:'Standoff',    icon:'⚖',
@@ -804,11 +804,6 @@
       }
     }
 
-    if (card.key === 'martyr' && opts.killedByOpponent){
-      var mIdx = findOtherLivingUnit(p, idx);
-      if (mIdx !== -1) gainCharges(side, mIdx, 2);
-    }
-
     p.grave.push(card);
     p.units[idx] = null;
 
@@ -1025,17 +1020,42 @@
 
   function resolveLiquidator(defSide, foundIdx){
     var dp = state.players[defSide];
-    var idx = findStrongestUnit(dp);
-    if (idx === -1){ addLog(dp.name + "'s Liquidator fizzles — no unit to liquidate.", 'trap'); consumeTrap(defSide, foundIdx); return; }
-    var recipient = findStrongestUnit(dp, idx);
-    if (recipient === -1){ addLog(dp.name + "'s Liquidator fizzles — no unit to receive the payout.", 'trap'); consumeTrap(defSide, foundIdx); return; }
-    var u = dp.units[idx];
-    var hadEquip = !!u.equip;
-    var gained = Math.floor(u.hp / 2) + (u.charges || 0) + (hadEquip ? 2 : 0);
-    gainCharges(defSide, recipient, gained);
-    addLog(dp.name + "'s Liquidator cashes out " + u.card.name + ' for ' + gained + ' charges, paid to ' + dp.units[recipient].card.name + '.', 'trap');
-    destroyUnit(defSide, idx, {});
-    consumeTrap(defSide, foundIdx);
+    var alive = [];
+    dp.units.forEach(function(u, i){ if (u && u.alive) alive.push(i); });
+    if (alive.length < 1){ addLog(dp.name + "'s Liquidator fizzles — no unit to sacrifice.", 'trap'); consumeTrap(defSide, foundIdx); return; }
+    var unitLabel = function(i){ var u = dp.units[i]; return u.card.name + ' (' + u.hp + '/' + u.maxHp + ' HP)'; };
+    pauseForChoice({
+      title: 'Liquidator',
+      message: dp.name + ', choose a unit to sacrifice.',
+      options: alive.map(function(sacIdx){
+        return { label: unitLabel(sacIdx), onClick: function(){
+          var sac = dp.units[sacIdx];
+          var gained = Math.floor(sac.hp / 5);
+          var receivers = alive.filter(function(i){ return i !== sacIdx && dp.units[i] && dp.units[i].alive; });
+          if (gained <= 0 || receivers.length === 0){
+            addLog(dp.name + "'s Liquidator sacrifices " + sac.card.name + ' but it yields no charges.', 'trap');
+            destroyUnit(defSide, sacIdx, {});
+            consumeTrap(defSide, foundIdx);
+            drainQueue();
+            return;
+          }
+          pauseForChoice({
+            title: 'Liquidator',
+            message: dp.name + ', choose the unit to receive ' + gained + ' charge' + (gained === 1 ? '' : 's') + ' from ' + sac.card.name + '.',
+            options: receivers.map(function(recIdx){
+              return { label: unitLabel(recIdx), onClick: function(){
+                gainCharges(defSide, recIdx, gained);
+                addLog(dp.name + "'s Liquidator sacrifices " + sac.card.name + ' for ' + gained + ' charge' + (gained === 1 ? '' : 's') + ', paid to ' + dp.units[recIdx].card.name + '.', 'trap');
+                destroyUnit(defSide, sacIdx, {});
+                consumeTrap(defSide, foundIdx);
+                drainQueue();
+              }};
+            })
+          });
+        }};
+      })
+    });
+    return 'PAUSED';
   }
 
   function resolveRepossess(defSide, attackerSide, foundIdx){
@@ -1336,6 +1356,28 @@
     }
   }
 
+  function doMartyr(side, slotIdx, u, t){
+    if (!(u.charges > 0)){ logIdle(side, u.card.name, t, 'no charge to spend'); return; }
+    var selfPlayer = state.players[side];
+    var targets = [];
+    selfPlayer.units.forEach(function(x, i){ if (i !== slotIdx && x && x.alive) targets.push(i); });
+    if (targets.length === 0){ logIdle(side, u.card.name, t, 'no unit to receive its charges'); return; }
+    var unitLabel = function(i){ var x = selfPlayer.units[i]; return x.card.name + ' (' + x.hp + '/' + x.maxHp + ' HP)'; };
+    pauseForChoice({
+      title: 'Martyr',
+      message: selfPlayer.name + ', choose the unit to receive 2 charges from Martyr.',
+      options: targets.map(function(i){
+        return { label: unitLabel(i), onClick: function(){
+          gainCharges(side, i, 2);
+          addLog('t' + t + ': ' + selfPlayer.name + "'s Martyr gives 2 charges to " + selfPlayer.units[i].card.name + ' and destroys itself.', 'meta');
+          destroyUnit(side, slotIdx, {});
+          drainQueue();
+        }};
+      })
+    });
+    return 'PAUSED';
+  }
+
   function resolveBlackBox(side, continuousIdx){
     var p = state.players[side];
     var slot = p.continuous[continuousIdx];
@@ -1383,7 +1425,7 @@
     var result;
     state.manualPause = true; // if this opens a choice, resuming should not consume a queued Step
     switch (tr.card.key){
-      case 'liquidator': resolveLiquidator(side, idx); break;
+      case 'liquidator': result = resolveLiquidator(side, idx); break;
       case 'cannibalize': result = resolveCannibalize(side, idx); break;
       case 'standoff': result = resolveStandoff(side, 1 - side, idx); break;
       case 'donation': resolveDonation(side, 1 - side, idx); break;
@@ -1401,6 +1443,7 @@
     switch (u.card.key){
       case 'loadedgun': result = doLoadedGun(side, idx, u, state.tick); break;
       case 'undertaker': result = doUndertaker(side, idx, u, state.tick); break;
+      case 'martyr': result = doMartyr(side, idx, u, state.tick); break;
     }
     if (result !== 'PAUSED') state.manualPause = false;
     render();
@@ -1419,6 +1462,7 @@
           case 'parasite': return doParasite(side, slotIdx, u, t);
           case 'loadedgun': return doLoadedGun(side, slotIdx, u, t);
           case 'mimic': return doMimic(side, slotIdx, u, t);
+          case 'martyr': return doMartyr(side, slotIdx, u, t);
         }
         return;
       default: return;
