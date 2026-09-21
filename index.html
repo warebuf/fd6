@@ -74,12 +74,6 @@
   .progress-wrap{ width:100px; height:5px; border-radius:999px; background:var(--panel-2); border:1px solid var(--line); overflow:hidden; }
   .progress-fill{ height:100%; background:linear-gradient(90deg,var(--p1),var(--p2)); width:0%; transition:width .12s linear; }
   .spacer{ flex:1 1 auto; }
-  .speed-group{ display:flex; gap:4px; border:1px solid var(--line); border-radius:8px; padding:2px; background:var(--panel-2); }
-  .speed-btn{
-    border:none; background:transparent; color:var(--text-dim); font-size:.68rem;
-    padding:3px 7px; border-radius:6px; cursor:pointer;
-  }
-  .speed-btn.active{ background:var(--panel); color:var(--text); box-shadow:var(--shadow); font-weight:600; }
   .btn{
     font-weight:600; font-size:.78rem; padding:6px 13px; border-radius:8px;
     border:1px solid var(--line); background:var(--panel-2); color:var(--text); cursor:pointer;
@@ -174,7 +168,7 @@
   .panel.p1 .card.is-selected{ border-color:var(--p1); box-shadow:0 0 0 2px var(--p1-bg), 0 3px 10px rgba(0,0,0,.1); }
   .panel.p2 .card.is-selected{ border-color:var(--p2); box-shadow:0 0 0 2px var(--p2-bg), 0 3px 10px rgba(0,0,0,.1); }
   .card.placed{ cursor:pointer; }
-  .card.dim{ opacity:.55; cursor:default; }
+  .card.dim{ opacity:.55; }
   .card.valid-target{ box-shadow:0 0 0 2px var(--p1) inset; }
   .panel.p2 .card.valid-target{ box-shadow:0 0 0 2px var(--p2) inset; }
   .equip-badge{
@@ -197,6 +191,30 @@
     flex:0 0 auto; text-align:center; font-family:'Chakra Petch',sans-serif; font-size:.68rem;
     color:var(--text-dim); letter-spacing:.15em; padding-bottom:2px; border-bottom:1px solid var(--line);
   }
+
+  /* card inspector */
+  .inspector{
+    flex:0 0 auto; background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:8px 10px; display:flex; flex-direction:column; gap:5px; font-size:.74rem;
+  }
+  .inspector-head{ display:flex; justify-content:space-between; align-items:center; font-size:.66rem; text-transform:uppercase; letter-spacing:.07em; color:var(--text-dim); }
+  .inspector-empty{ color:var(--text-dim); font-size:.72rem; font-style:italic; }
+  .inspector-title{ display:flex; align-items:center; gap:8px; }
+  .inspector-icon{ font-size:1.4rem; line-height:1; width:1.6rem; text-align:center; }
+  .inspector-name{ font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:.95rem; line-height:1.1; }
+  .inspector-type{ font-size:.62rem; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim); }
+  .inspector.cattack .inspector-type{ color:var(--danger); }
+  .inspector.cheal .inspector-type{ color:var(--heal); }
+  .inspector.ctrap .inspector-type{ color:var(--trap); }
+  .inspector.cequip .inspector-type{ color:var(--equip); }
+  .inspector.cspecial .inspector-type{ color:var(--special); }
+  .inspector-stats{ display:flex; flex-wrap:wrap; gap:4px; }
+  .inspector-stat{ font-size:.66rem; padding:2px 6px; border-radius:999px; background:var(--panel-2); border:1px solid var(--line); }
+  .inspector-effect{ line-height:1.35; }
+  .inspector-live{ border-top:1px dashed var(--line); padding-top:5px; color:var(--text-dim); font-size:.68rem; line-height:1.35; }
+  .inspector-close{ background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:.8rem; padding:0 2px; line-height:1; }
+  .inspector-close:hover{ color:var(--text); }
+  .grave-chip{ cursor:pointer; }
 
   /* log */
   .log-panel{
@@ -233,7 +251,7 @@
     .battlefield{ flex-direction:column; overflow-y:auto; }
     .panel{ flex:0 0 auto; max-height:none; }
     .section{ min-height:120px; }
-    .center-col{ flex:0 0 auto; order:3; height:160px; }
+    .center-col{ flex:0 0 auto; order:3; height:320px; }
   }
 </style>
 </head>
@@ -249,12 +267,6 @@
       <div class="progress-wrap" id="progressWrap" hidden><div class="progress-fill" id="progressFill"></div></div>
     </div>
     <div class="spacer"></div>
-    <div class="speed-group" aria-label="Simulation speed">
-      <button class="speed-btn" data-speed="normal">Normal</button>
-      <button class="speed-btn" data-speed="fast">Fast</button>
-      <button class="speed-btn" data-speed="instant">Instant</button>
-      <button class="speed-btn" data-speed="step">Step</button>
-    </div>
     <button class="btn primary" id="mainActionBtn">Reveal &amp; Simulate</button>
     <button class="btn ghost small" id="resetBtn">Reset</button>
   </div>
@@ -291,6 +303,10 @@
 
   <div class="center-col">
     <div class="center-label">Front Line</div>
+    <div class="inspector" id="inspector">
+      <div class="inspector-head"><span>Card Info</span><button class="inspector-close" id="inspectorClose" title="Clear" hidden>✕</button></div>
+      <div id="inspectorBody"><div class="inspector-empty">Click any card to see what it does.</div></div>
+    </div>
     <div class="log-panel">
       <div class="log-head"><span>Battle Log</span><span id="logCount">0 events</span></div>
       <div class="log-body" id="logBody"></div>
@@ -417,7 +433,6 @@
   ];
   var STRUCTURE_HP = 30, STRUCTURE_COUNT = 3, UNIT_SLOTS = 5, TRAP_SLOTS = 5, CONTINUOUS_SLOTS = 2;
   var INITIAL_HAND = 6, DRAW_PER_ROUND = 3, SIM_TICKS = 60;
-  var SPEED_MS = { normal:160, fast:45, instant:0 };
 
   var cardUid = 0;
   function makeCard(key){
@@ -486,8 +501,8 @@
 
   function freshState(){
     var s = {
-      round: 1, phase: 'setup', tick: 0, speed: 'normal',
-      selected: null, winner: null, log: [], graveOpen: [false,false],
+      round: 1, phase: 'setup', tick: 0,
+      selected: null, inspected: null, winner: null, log: [], graveOpen: [false,false],
       pendingChoice: null, tickQueue: [], tickQueuePos: 0,
       players: [newPlayer('Player 1'), newPlayer('Player 2')]
     };
@@ -501,22 +516,13 @@
   }
 
   // ---------- Simulation ----------
-  var simTimer = null;
-
   function startSimulation(){
     if (state.phase !== 'setup') return;
     state.phase = 'simulating';
     state.tick = 0;
     state.selected = null;
-    addLog('Round ' + state.round + ': boards revealed. Battle begins.', 'meta');
+    addLog('Round ' + state.round + ': boards revealed. Battle begins. Press Step to advance.', 'meta');
     render();
-    scheduleTick();
-  }
-
-  function scheduleTick(){
-    clearTimeout(simTimer);
-    if (state.speed === 'step') return; // manual mode: wait for a Step click instead of a timer
-    simTimer = setTimeout(runTick, SPEED_MS[state.speed]);
   }
 
   function buildTickQueue(){
@@ -547,28 +553,16 @@
     return performAction(item.side, item.idx, u, state.tick);
   }
 
-  function runTick(){
-    buildTickQueue();
-    drainQueue();
-  }
-
-  // Drains the current tick's action queue. In auto speeds it runs to completion (or until a
-  // choice pauses it); in 'step' speed it processes exactly one queued action per call, then
-  // still performs the same end-of-queue bookkeeping (game over / next-tick scheduling) so the
-  // Step button and the timer-driven path share one source of truth for "what happens next".
+  // Processes exactly one queued action from the current tick, then does the end-of-queue
+  // bookkeeping (game over / end of round). Remaining actions wait for the next Step click.
   function drainQueue(){
-    while (state.tickQueuePos < state.tickQueue.length){
+    if (state.tickQueuePos < state.tickQueue.length){
       var item = state.tickQueue[state.tickQueuePos++];
       var result = processQueueItem(item);
-      if (state.phase === 'gameOver'){ render(); return; }
-      if (result === 'PAUSED'){ render(); return; }
-      if (state.speed === 'step') break;
+      if (state.phase === 'gameOver' || result === 'PAUSED'){ render(); return; }
     }
     render();
-    if (state.phase === 'gameOver') return;
-    if (state.tickQueuePos >= state.tickQueue.length && state.tick >= SIM_TICKS){ endSimulation(); return; }
-    if (state.tickQueuePos < state.tickQueue.length) return; // step mode paused mid-queue; wait for next click
-    scheduleTick();
+    if (state.tickQueuePos >= state.tickQueue.length && state.tick >= SIM_TICKS) endSimulation();
   }
 
   function stepOnce(){
@@ -863,7 +857,6 @@
         state.phase = 'gameOver';
         state.winner = attackerSide;
         addLog(state.players[attackerSide].name + ' wins! All of ' + dp.name + "'s structures have fallen.", 'win');
-        clearTimeout(simTimer);
       }
     }
     return undefined;
@@ -1081,7 +1074,6 @@
           state.phase = 'gameOver';
           state.winner = 1 - side;
           addLog(state.players[1 - side].name + ' wins!', 'win');
-          clearTimeout(simTimer);
         }
       }
       return;
@@ -1362,10 +1354,93 @@
 
   function resetGame(){
     if (!confirm('Start a brand new game? Current boards and log will be cleared.')) return;
-    clearTimeout(simTimer);
     state = freshState();
     lastHandUids = [new Set(), new Set()];
     render();
+  }
+
+  // ---------- Card inspector ----------
+  // loc: { side, zone:'hand'|'unit'|'trap'|'continuous'|'grave', idx } or null for a detached card (e.g. an equip badge)
+  function inspectCard(card, loc){
+    state.inspected = { card: card, loc: loc || null };
+    renderInspector();
+  }
+
+  function inspectedLiveInfo(){
+    var ins = state.inspected;
+    if (!ins || !ins.loc) return null;
+    var loc = ins.loc, p = state.players[loc.side];
+    if (loc.zone === 'unit'){
+      var u = p.units[loc.idx];
+      if (!u || u.card.uid !== ins.card.uid) return null;
+      var parts = ['On ' + p.name + "'s board (slot " + (loc.idx + 1) + ')', 'HP ' + u.hp + '/' + u.maxHp];
+      if (ins.card.usesCharges) parts.push('Charges ' + (u.charges || 0));
+      if (isFinite(ins.card.cooldown) && (state.phase === 'simulating' || state.phase === 'roundEnd'))
+        parts.push('Next action in ' + (ins.card.cooldown - (state.tick % ins.card.cooldown)) + ' ticks');
+      if (u.equip){
+        var eq = 'Equipped: ' + u.equip.card.name;
+        if (u.equip.card.key === 'battery') eq += ' (' + (u.equip.storedCharges || 0) + '/3 stored)';
+        parts.push(eq);
+      }
+      if (u.hostSlot != null && p.units[u.hostSlot]) parts.push('Attached to ' + p.units[u.hostSlot].card.name);
+      return parts;
+    }
+    if (loc.zone === 'trap' || loc.zone === 'continuous'){
+      var arr = loc.zone === 'trap' ? p.traps : p.continuous;
+      var inst = arr[loc.idx];
+      if (!inst || inst.card.uid !== ins.card.uid) return null;
+      return loc.zone === 'trap'
+        ? ['Armed on ' + p.name + "'s side"]
+        : ['Active on ' + p.name + "'s side", 'Charges ' + (inst.charges || 0) + '/3'];
+    }
+    if (loc.zone === 'hand'){
+      var h = p.hand[loc.idx];
+      if (!h || h.uid !== ins.card.uid) return null;
+      return ['In ' + p.name + "'s hand"];
+    }
+    if (loc.zone === 'grave') return ['In ' + p.name + "'s graveyard"];
+    return null;
+  }
+
+  function cardTypeLabel(card){
+    if (card.type === 'trap') return 'Trap · one use';
+    if (card.type === 'continuous') return 'Continuous · field';
+    if (card.type === 'equip') return 'Equip';
+    if (card.unitType === 'attacker') return 'Unit · attacker';
+    if (card.unitType === 'healer') return 'Unit · healer';
+    if (card.unitType === 'passive') return 'Unit · passive';
+    return 'Unit · special';
+  }
+
+  function renderInspector(){
+    var box = document.getElementById('inspector');
+    var body = document.getElementById('inspectorBody');
+    var closeBtn = document.getElementById('inspectorClose');
+    var ins = state.inspected;
+    box.className = 'inspector';
+    body.innerHTML = '';
+    closeBtn.hidden = !ins;
+    if (!ins){
+      body.innerHTML = '<div class="inspector-empty">Click any card to see what it does.</div>';
+      return;
+    }
+    var card = ins.card;
+    box.className = 'inspector ' + cardColorClass(card);
+    var stats = [];
+    if (card.power != null) stats.push('PWR ' + card.power);
+    if (card.heal != null) stats.push('HEAL ' + card.heal);
+    if (card.hp != null) stats.push('HP ' + card.hp);
+    if (card.startCharges != null) stats.push('Starts with ' + card.startCharges + ' charge' + (card.startCharges === 1 ? '' : 's'));
+    else if (card.usesCharges) stats.push('Uses charges');
+    if (isFinite(card.cooldown) && card.type === 'unit') stats.push('Every ' + card.cooldown + ' ticks');
+    var html =
+      '<div class="inspector-title"><div class="inspector-icon">' + card.icon + '</div>' +
+      '<div><div class="inspector-name">' + card.name + '</div><div class="inspector-type">' + cardTypeLabel(card) + '</div></div></div>';
+    if (stats.length) html += '<div class="inspector-stats">' + stats.map(function(t){ return '<span class="inspector-stat mono">' + t + '</span>'; }).join('') + '</div>';
+    html += '<div class="inspector-effect">' + card.effect + '</div>';
+    var live = inspectedLiveInfo();
+    if (live) html += '<div class="inspector-live">' + live.join(' · ') + '</div>';
+    body.innerHTML = html;
   }
 
   // ---------- Rendering ----------
@@ -1407,10 +1482,10 @@
       '<div class="name">' + card.name + '</div>' +
       '<div class="stat mono">' + lines[0] + '</div>' +
       '<div class="stat mono">' + lines[1] + '</div>';
+    c.addEventListener('click', function(){ inspectCard(card, { side: side, zone: 'hand', idx: idx }); if (interactive) onHandCardClick(side, idx); });
     if (interactive){
-      c.addEventListener('click', function(){ onHandCardClick(side, idx); });
       c.addEventListener('dblclick', function(e){ e.preventDefault(); autoPlaceCard(side, idx); });
-      c.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); onHandCardClick(side, idx); } });
+      c.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); inspectCard(card, { side: side, zone: 'hand', idx: idx }); onHandCardClick(side, idx); } });
     }
     return c;
   }
@@ -1442,7 +1517,7 @@
     var chargePct = (state.phase === 'simulating' || state.phase === 'roundEnd' || state.phase === 'gameOver') && isFinite(card.cooldown)
       ? (state.tick % card.cooldown) / card.cooldown : 0;
     var chargeLine = card.usesCharges ? ('<div class="stat mono">⚡' + (u.charges || 0) + '</div>') : '';
-    var equipBadge = u.equip ? ('<div class="equip-badge" title="' + u.equip.card.name + ' — ' + u.equip.card.effect + '">' + u.equip.card.icon + '</div>') : '';
+    var equipBadge = u.equip ? ('<div class="equip-badge" title="' + u.equip.card.name + ' — ' + u.equip.card.effect + ' (click for details)">' + u.equip.card.icon + '</div>') : '';
     c.innerHTML =
       equipBadge +
       '<div class="icon">' + card.icon + '</div>' +
@@ -1452,9 +1527,11 @@
       chargeLine +
       '<div class="hp-bar"><div class="hp-fill' + (pct < .34 ? ' low' : '') + '" style="width:' + (pct*100) + '%"></div></div>' +
       '<div class="charge-bar"><div class="charge-fill" style="width:' + (chargePct*100) + '%"></div></div>';
+    var badgeEl = c.querySelector('.equip-badge');
+    if (badgeEl) badgeEl.addEventListener('click', function(e){ e.stopPropagation(); inspectCard(u.equip.card, null); });
+    c.addEventListener('click', function(){ inspectCard(card, { side: side, zone: 'unit', idx: idx }); if (interactive) onSlotClick(side, 'unit', idx); });
     if (interactive){
-      c.addEventListener('click', function(){ onSlotClick(side, 'unit', idx); });
-      c.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); onSlotClick(side, 'unit', idx); } });
+      c.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); inspectCard(card, { side: side, zone: 'unit', idx: idx }); onSlotClick(side, 'unit', idx); } });
     }
     return c;
   }
@@ -1481,9 +1558,9 @@
       '<div class="icon">' + card.icon + '</div>' +
       '<div class="name">' + card.name + '</div>' +
       '<div class="stat mono">' + statLine + '</div>';
+    c.addEventListener('click', function(){ inspectCard(card, { side: side, zone: zone, idx: idx }); if (interactive) onSlotClick(side, zone, idx); });
     if (interactive){
-      c.addEventListener('click', function(){ onSlotClick(side, zone, idx); });
-      c.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); onSlotClick(side, zone, idx); } });
+      c.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); inspectCard(card, { side: side, zone: zone, idx: idx }); onSlotClick(side, zone, idx); } });
     }
     return c;
   }
@@ -1515,9 +1592,10 @@
         var e = el('span', null); e.style.color = 'var(--text-dim)'; e.style.fontSize = '.72rem'; e.textContent = 'Empty.';
         graveList.appendChild(e);
       } else {
-        p.grave.forEach(function(c){
-          var chip = el('span', 'grave-chip', { title: c.name });
+        p.grave.forEach(function(c, gi){
+          var chip = el('span', 'grave-chip', { title: c.name + ' — ' + c.effect });
           chip.textContent = c.icon;
+          chip.addEventListener('click', function(){ inspectCard(c, { side: side, zone: 'grave', idx: gi }); });
           graveList.appendChild(chip);
         });
       }
@@ -1569,16 +1647,12 @@
       document.getElementById('progressFill').style.width = (state.tick / SIM_TICKS * 100) + '%';
     }
 
-    document.querySelectorAll('.speed-btn').forEach(function(b){
-      b.classList.toggle('active', b.dataset.speed === state.speed);
-    });
-
     var mainBtn = document.getElementById('mainActionBtn');
     mainBtn.disabled = false;
     if (state.phase === 'setup'){ mainBtn.textContent = 'Reveal & Simulate'; mainBtn.onclick = startSimulation; }
     else if (state.phase === 'simulating'){
-      if (state.speed === 'step' && !state.pendingChoice){ mainBtn.textContent = 'Step ▶'; mainBtn.onclick = stepOnce; }
-      else { mainBtn.textContent = 'Simulating…'; mainBtn.disabled = true; mainBtn.onclick = null; }
+      if (!state.pendingChoice){ mainBtn.textContent = 'Step ▶'; mainBtn.onclick = stepOnce; }
+      else { mainBtn.textContent = 'Awaiting choice…'; mainBtn.disabled = true; mainBtn.onclick = null; }
     }
     else if (state.phase === 'roundEnd'){ mainBtn.textContent = 'Draw & Continue'; mainBtn.onclick = continueToNextRound; }
     else { mainBtn.textContent = 'New Game'; mainBtn.onclick = resetGame; }
@@ -1633,17 +1707,12 @@
     renderPlayerPanel(0);
     renderPlayerPanel(1);
     renderLog();
+    renderInspector();
     renderChoiceOverlay();
   }
 
-  document.querySelectorAll('.speed-btn').forEach(function(b){
-    b.addEventListener('click', function(){
-      state.speed = b.dataset.speed;
-      render();
-      if (state.phase === 'simulating' && !state.pendingChoice) scheduleTick();
-    });
-  });
   document.getElementById('resetBtn').addEventListener('click', resetGame);
+  document.getElementById('inspectorClose').addEventListener('click', function(){ state.inspected = null; renderInspector(); });
   document.getElementById('overlayNewGame').addEventListener('click', resetGame);
 
   state = freshState();
