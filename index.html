@@ -396,20 +396,20 @@
     healer:   { key:'healer',   type:'unit', unitType:'healer',   name:'Medic',   icon:'✚', heal:10,  hp:15, cooldown:20,
       effect:'Every 20 ticks, heals whichever own structure or unit is most wounded (by %) for 10.' },
     mirror:   { key:'mirror',   type:'trap', manualArm:true,      name:'Mirror Wall', icon:'◈',
-      effect:'Dormant until you activate it during the battle. Once active, negates the next enemy attack on your side and destroys every enemy Striker.' },
+      effect:'Dormant until you activate it during the battle. Once active, negates the next enemy attack on your side and destroys the unit that made it.' },
 
     gravedigger:  { key:'gravedigger',  type:'unit', unitType:'special', name:'Gravedigger',  icon:'Ω', hp:16, cooldown:20, startCharges:1, usesCharges:true,
       effect:'1 charge. When spent, fires once for every card in your graveyard, 4 damage each.' },
-    undertaker:   { key:'undertaker',   type:'unit', unitType:'special', name:'Undertaker',   icon:'⛧', hp:14, cooldown:20, usesCharges:true,
-      effect:'Gains 1 charge whenever one of your units dies. Spend 2: return a unit card from your graveyard to hand.' },
+    undertaker:   { key:'undertaker',   type:'unit', unitType:'special', name:'Undertaker',   icon:'⛧', hp:14, cooldown:Infinity, usesCharges:true, activatable:true, activateCost:2,
+      effect:'Gains 1 charge whenever one of your units dies. Activate whenever you like: spend 2 charges to return a unit card from your graveyard to hand.' },
     predator:     { key:'predator',     type:'unit', unitType:'attacker', name:'Predator',    icon:'♦', power:16, hp:18, cooldown:20,
-      effect:'Powerful attacker (16 power).' },
+      effect:'Powerful attacker (16 power). When it dies, its death throes hit every other unit on your side for 5.' },
     extortionist: { key:'extortionist', type:'unit', unitType:'passive', name:'Extortionist', icon:'¤', hp:14, cooldown:Infinity,
       effect:'Whenever the opponent activates a trap, continuous, or special ability, one of your units gains 1 charge.' },
     bodyguard:    { key:'bodyguard',    type:'unit', unitType:'passive', name:'Bodyguard',    icon:'⛨', hp:22, cooldown:Infinity,
       effect:'May redirect an attack aimed at another of your units or structures onto itself instead.' },
-    scavenger:    { key:'scavenger',    type:'unit', unitType:'passive', name:'Scavenger',    icon:'↻', hp:15, cooldown:Infinity,
-      effect:'Whenever any unit dies (either side), may take its unclaimed equip.' },
+    scavenger:    { key:'scavenger',    type:'unit', unitType:'attacker', name:'Scavenger',   icon:'↻', power:5, hp:15, cooldown:20,
+      effect:'Every 20 ticks, attacks for 5. Whenever any unit dies (either side), may take its unclaimed equip.' },
     parasite:     { key:'parasite',     type:'unit', unitType:'special', name:'Parasite',     icon:'☣', hp:8,  cooldown:20, usesCharges:true,
       effect:'Choose one of your other units as its host when placed. Mirrors every charge the host gains from then on.' },
     martyr:       { key:'martyr',       type:'unit', unitType:'attacker', name:'Martyr',      icon:'✟', power:9, hp:12, cooldown:20,
@@ -434,7 +434,7 @@
     hijack:            { key:'hijack',            type:'trap', name:'Hijack',             icon:'⚡',
       effect:"When the opponent activates a charge ability, spend 1 of your charges to redirect it onto their own unit." },
     cannibalize:       { key:'cannibalize',       type:'trap', manualFire:true, name:'Cannibalize', icon:'⌇',
-      effect:"Activate it during the battle: destroys your weakest unit to fully transfer its HP and charges to your strongest." },
+      effect:"Activate it during the battle: choose one of your units to destroy, then another to receive all of its HP." },
 
     deathless:       { key:'deathless',       type:'equip', name:'Deathless',           icon:'♞',
       effect:'Equip. Destroys itself instead of letting the equipped unit die, once.' },
@@ -460,6 +460,7 @@
     ['blackbox',2]
   ];
   var STRUCTURE_HP = 30, STRUCTURE_COUNT = 3, UNIT_SLOTS = 5, TRAP_SLOTS = 5, CONTINUOUS_SLOTS = 2;
+  var PREDATOR_DEATH_AOE = 5;
   var INITIAL_HAND = 6, DRAW_PER_ROUND = 3, SIM_TICKS = 60;
 
   var cardUid = 0;
@@ -814,6 +815,16 @@
     p.units.forEach(function(uu){ if (uu && uu.alive && uu.card.key === 'undertaker') uu.charges = (uu.charges || 0) + 1; });
     p.continuous.forEach(function(cc){ if (cc && cc.card.key === 'blackbox') cc.charges = (cc.charges || 0) + 1; });
     p.units.forEach(function(uu){ if (uu && uu.alive && uu.card.key === 'parasite' && uu.hostSlot === idx) uu.hostSlot = null; });
+
+    if (card.key === 'predator'){
+      addLog(p.name + "'s Predator lashes out as it dies, hitting its own side for " + PREDATOR_DEATH_AOE + '.', 'attack');
+      p.units.forEach(function(uu, i){
+        if (!uu || !uu.alive) return;
+        uu.hp -= PREDATOR_DEATH_AOE;
+        addLog(p.name + "'s " + uu.card.name + ' takes ' + PREDATOR_DEATH_AOE + ' from the death throes.', 'attack');
+        if (uu.hp <= 0) destroyUnit(side, i, {});
+      });
+    }
   }
 
   function forcePerformAction(side, idx, u, t){
@@ -873,11 +884,12 @@
     return null;
   }
 
-  function resolveAttackHit(attackerSide, defSide, power, sourceLabel, t){
+  // attackerIdx: slot of the attacking unit, when there is one (Black Box replays and dying units pass none).
+  function resolveAttackHit(attackerSide, defSide, power, sourceLabel, t, attackerIdx){
     var dp = state.players[defSide];
     var target = pickAttackTarget(dp);
     if (!target) return undefined;
-    var trapResult = triggerArmedTrap(defSide, attackerSide, power, target.kind, target.idx, t);
+    var trapResult = triggerArmedTrap(defSide, attackerSide, power, target.kind, target.idx, t, attackerIdx);
     if (trapResult === 'PAUSED') return 'PAUSED';
     if (trapResult === true) return undefined;
     var bgSlot = findLivingBodyguardSlot(dp);
@@ -956,7 +968,7 @@
   }
 
   // ---------- Trap dispatcher (fires when an attack lands) ----------
-  function triggerArmedTrap(defSide, attackerSide, power, targetKind, targetIdx, t){
+  function triggerArmedTrap(defSide, attackerSide, power, targetKind, targetIdx, t, attackerIdx){
     var dp = state.players[defSide];
     var TRAP_KEYS = ['mirror', 'donation', 'liquidator', 'mutualdestruction', 'standoff', 'repossess', 'cannibalize'];
     var foundIdx = -1;
@@ -971,7 +983,7 @@
     chargeExtortion(defSide);
     var key = dp.traps[foundIdx].card.key;
     switch (key){
-      case 'mirror': resolveMirror(defSide, attackerSide, foundIdx); return true;
+      case 'mirror': resolveMirror(defSide, attackerSide, foundIdx, attackerIdx); return true;
       case 'donation': resolveDonation(defSide, attackerSide, foundIdx); return true;
       case 'liquidator': resolveLiquidator(defSide, foundIdx); return true;
       case 'repossess': resolveRepossess(defSide, attackerSide, foundIdx); return true;
@@ -982,12 +994,15 @@
     return false;
   }
 
-  function resolveMirror(defSide, attackerSide, foundIdx){
+  function resolveMirror(defSide, attackerSide, foundIdx, attackerIdx){
     var dp = state.players[defSide], ap = state.players[attackerSide];
-    ap.units.forEach(function(uu, i){
-      if (uu && uu.alive && uu.card.unitType === 'attacker') destroyUnit(attackerSide, i, { killedByOpponent: true });
-    });
-    addLog(dp.name + "'s Mirror Wall shatters the attack — every Striker-type unit of " + ap.name + "'s is destroyed!", 'trap');
+    var attacker = attackerIdx !== undefined ? ap.units[attackerIdx] : null;
+    if (attacker && attacker.alive){
+      addLog(dp.name + "'s Mirror Wall reflects the attack — " + ap.name + "'s " + attacker.card.name + ' is destroyed!', 'trap');
+      destroyUnit(attackerSide, attackerIdx, { killedByOpponent: true });
+    } else {
+      addLog(dp.name + "'s Mirror Wall negates the attack, but there is no attacking unit to destroy.", 'trap');
+    }
     consumeTrap(defSide, foundIdx);
   }
 
@@ -1048,14 +1063,31 @@
     var alive = [];
     dp.units.forEach(function(u, i){ if (u && u.alive) alive.push(i); });
     if (alive.length < 2){ addLog(dp.name + "'s Cannibalize fizzles — not enough units.", 'trap'); consumeTrap(defSide, foundIdx); return; }
-    var sacIdx = findWeakestUnit(dp);
-    var recIdx = findStrongestUnit(dp, sacIdx);
-    if (recIdx === -1){ addLog(dp.name + "'s Cannibalize fizzles.", 'trap'); consumeTrap(defSide, foundIdx); return; }
-    var sac = dp.units[sacIdx], rec = dp.units[recIdx];
-    rec.maxHp += sac.hp; rec.hp += sac.hp; rec.charges = (rec.charges || 0) + (sac.charges || 0);
-    addLog(dp.name + ' cannibalizes ' + sac.card.name + ' into ' + rec.card.name + '.', 'trap');
-    destroyUnit(defSide, sacIdx, {});
-    consumeTrap(defSide, foundIdx);
+    var unitLabel = function(i){ var u = dp.units[i]; return u.card.name + ' (' + u.hp + '/' + u.maxHp + ' HP)'; };
+    pauseForChoice({
+      title: 'Cannibalize',
+      message: dp.name + ', choose a unit to sacrifice.',
+      options: alive.map(function(sacIdx){
+        return { label: unitLabel(sacIdx), onClick: function(){
+          var receivers = alive.filter(function(i){ return i !== sacIdx && dp.units[i] && dp.units[i].alive; });
+          pauseForChoice({
+            title: 'Cannibalize',
+            message: dp.name + ', choose the unit that receives ' + dp.units[sacIdx].card.name + "'s " + dp.units[sacIdx].hp + ' HP.',
+            options: receivers.map(function(recIdx){
+              return { label: unitLabel(recIdx), onClick: function(){
+                var sac = dp.units[sacIdx], rec = dp.units[recIdx];
+                rec.maxHp += sac.hp; rec.hp += sac.hp;
+                addLog(dp.name + ' cannibalizes ' + sac.card.name + ' into ' + rec.card.name + ' (+' + sac.hp + ' HP).', 'trap');
+                destroyUnit(defSide, sacIdx, {});
+                consumeTrap(defSide, foundIdx);
+                drainQueue();
+              }};
+            })
+          });
+        }};
+      })
+    });
+    return 'PAUSED';
   }
 
   function bidOptionsFor(player){
@@ -1190,7 +1222,7 @@
     var power = card.power;
     if (u.equip && u.equip.card.key === 'veteranstandard') power += selfPlayer.summonCount;
     selfPlayer.lastAction = { kind: 'attack', amount: power };
-    return resolveAttackHit(side, 1 - side, power, selfPlayer.name + "'s " + card.name, t);
+    return resolveAttackHit(side, 1 - side, power, selfPlayer.name + "'s " + card.name, t, slotIdx);
   }
 
   // Every scheduled action leaves a log line, even when it has nothing to do.
@@ -1216,8 +1248,9 @@
     addLog('t' + t + ': ' + selfPlayer.name + "'s Gravedigger unleashes " + graveCount + ' strike(s) from the grave!', 'attack');
     for (var k = 0; k < graveCount; k++){
       if (hijacked !== null){ hitOwnWeakest(hijacked, 4, selfPlayer.name + "'s Gravedigger (hijacked)", t); continue; }
-      var r = resolveAttackHit(side, 1 - side, 4, selfPlayer.name + "'s Gravedigger", t);
+      var r = resolveAttackHit(side, 1 - side, 4, selfPlayer.name + "'s Gravedigger", t, slotIdx);
       if (r === 'PAUSED') return 'PAUSED'; // remaining hits in this volley are dropped if one hit opens a choice modal
+      if (!u.alive) break;                 // e.g. reflected by Mirror Wall mid-volley
     }
   }
 
@@ -1265,7 +1298,7 @@
     var result;
     addLog('t' + t + ': ' + selfPlayer.name + ' fires Loaded Gun (' + u.charges + ' charge(s) left).', 'meta');
     if (hijacked !== null) hitOwnWeakest(hijacked, 2, label + ' (hijacked)', t);
-    else result = resolveAttackHit(side, 1 - side, 2, label, t);
+    else result = resolveAttackHit(side, 1 - side, 2, label, t, slotIdx);
     if (u.charges <= 0) destroyUnit(side, slotIdx, {});
     if (result === 'PAUSED') return 'PAUSED';
   }
@@ -1290,7 +1323,7 @@
     if (template.unitType === 'attacker'){
       var power = template.power;
       if (selfPlayer.units[templateIdx].equip && selfPlayer.units[templateIdx].equip.card.key === 'veteranstandard') power += selfPlayer.summonCount;
-      var r = resolveAttackHit(side, 1 - side, power, label, t);
+      var r = resolveAttackHit(side, 1 - side, power, label, t, slotIdx);
       selfPlayer.lastAction = { kind: 'attack', amount: power };
       if (r === 'PAUSED') return 'PAUSED';
     } else if (template.unitType === 'healer'){
@@ -1325,7 +1358,7 @@
   function canActivate(side, idx){
     if (state.phase !== 'simulating' || state.pendingChoice) return false;
     var u = state.players[side].units[idx];
-    return !!(u && u.alive && u.card.activatable && (u.charges || 0) > 0);
+    return !!(u && u.alive && u.card.activatable && (u.charges || 0) >= (u.card.activateCost || 1));
   }
 
   function canActivateTrap(side, idx){
@@ -1351,7 +1384,7 @@
     state.manualPause = true; // if this opens a choice, resuming should not consume a queued Step
     switch (tr.card.key){
       case 'liquidator': resolveLiquidator(side, idx); break;
-      case 'cannibalize': resolveCannibalize(side, idx); break;
+      case 'cannibalize': result = resolveCannibalize(side, idx); break;
       case 'standoff': result = resolveStandoff(side, 1 - side, idx); break;
       case 'donation': resolveDonation(side, 1 - side, idx); break;
       case 'repossess': resolveRepossess(side, 1 - side, idx); break;
@@ -1367,6 +1400,7 @@
     state.manualPause = true; // if this opens a choice, resuming should not consume a queued Step
     switch (u.card.key){
       case 'loadedgun': result = doLoadedGun(side, idx, u, state.tick); break;
+      case 'undertaker': result = doUndertaker(side, idx, u, state.tick); break;
     }
     if (result !== 'PAUSED') state.manualPause = false;
     render();
@@ -1556,8 +1590,11 @@
       var parts = ['On ' + p.name + "'s board (slot " + (loc.idx + 1) + ')', 'HP ' + u.hp + '/' + u.maxHp];
       if (ins.card.usesCharges) parts.push('Charges ' + (u.charges || 0));
       if (ins.card.activatable) parts.push('Activate manually during battle');
-      else if (isFinite(ins.card.cooldown) && (state.phase === 'simulating' || state.phase === 'roundEnd'))
-        parts.push('Next action in ' + (ins.card.cooldown - (state.tick % ins.card.cooldown)) + ' ticks');
+      else if (isFinite(ins.card.cooldown)){
+        parts.push('Acts every ' + ins.card.cooldown + ' ticks');
+        if (state.phase === 'simulating' || state.phase === 'roundEnd') parts.push('Next action in ' + (ins.card.cooldown - (state.tick % ins.card.cooldown)) + ' ticks');
+      }
+      else if (ins.card.unitType === 'passive') parts.push('Passive — never takes a turn');
       if (u.equip){
         var eq = 'Equipped: ' + u.equip.card.name;
         if (u.equip.card.key === 'battery') eq += ' (' + (u.equip.storedCharges || 0) + '/3 stored)';
@@ -1713,7 +1750,7 @@
       ? (state.tick % card.cooldown) / card.cooldown : 0;
     var chargeLine = (card.usesCharges || (u.charges || 0) > 0) ? ('<div class="stat mono">⚡' + (u.charges || 0) + '</div>') : '';
     var activatable = canActivate(side, idx);
-    if (activatable) lines[0] = '<button class="activate-btn" type="button" title="Spend 1 charge now">Fire</button>';
+    if (activatable) lines[0] = '<button class="activate-btn" type="button" title="Spend ' + (card.activateCost || 1) + ' charge(s) now">' + (card.key === 'undertaker' ? 'Recall' : 'Fire') + '</button>';
     var equipBadge = u.equip ? ('<div class="equip-badge" title="' + u.equip.card.name + ' — ' + u.equip.card.effect + ' (click for details)">' + u.equip.card.icon + '</div>') : '';
     c.innerHTML =
       equipBadge + prioBadge(side, 'unit', idx) +
