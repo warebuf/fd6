@@ -554,16 +554,22 @@
   }
 
   // ---------- Slot priority ----------
-  // Every slot has a priority number; lower acts first when actions tie on the same tick.
-  // One side holds the odd numbers for its unit slots (1,3,5,7,9) and the even numbers for its
-  // trap/field slots (2,4,6,...); the other side gets the reverse. Which side is "odd" swaps each round.
+  // Every slot has a priority number; lower acts first when actions tie on the same tick. Numbers are
+  // dealt snake-draft style: the side that is "first" gets 1,4,5,8,9,... and the other gets 2,3,6,7,10,...
+  // One side is first for unit slots and second for trap/field slots; the other side is the reverse.
+  // Which side is first for units swaps each round.
   function oddSide(){ return (state.round + 1) % 2; }
 
+  function snakeNumber(pos, first){
+    var odd = pos % 2 === 1;
+    return first ? (2 * pos + 1 + (odd ? 1 : 0)) : (2 * pos + 2 - (odd ? 1 : 0));
+  }
+
   function slotPriority(side, zone, idx){
-    var unitsOdd = side === oddSide();
-    if (zone === 'unit') return 2 * idx + (unitsOdd ? 1 : 2);
+    var unitsFirst = side === oddSide();
+    if (zone === 'unit') return snakeNumber(idx, unitsFirst);
     var pos = zone === 'trap' ? idx : TRAP_SLOTS + idx;
-    return 2 * pos + (unitsOdd ? 2 : 1);
+    return snakeNumber(pos, !unitsFirst);
   }
 
   // Actors scheduled for tick t, ordered by slot priority.
