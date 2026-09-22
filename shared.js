@@ -19,6 +19,8 @@ var CARD_DEFS = {
     effect:'May redirect an attack aimed at another of your units or structures onto itself instead.' },
   scavenger:    { key:'scavenger',    type:'unit', unitType:'attacker', name:'Scavenger',   icon:'↻', power:5, hp:15, cooldown:20,
     effect:'Every 20 ticks, attacks for 5. Whenever any unit dies (either side), may take its unclaimed equip.' },
+  disarmer:     { key:'disarmer',     type:'unit', unitType:'attacker', name:'Disarmer',    icon:'✂', power:8, hp:14, cooldown:20,
+    effect:'Every 20 ticks, attacks for 8. If the target is wearing an equip, destroys that equip instead of dealing damage.' },
   parasite:     { key:'parasite',     type:'unit', unitType:'special', name:'Parasite',     icon:'☣', hp:8,  cooldown:20, usesCharges:true,
     effect:'Choose one of your other units as its host when placed. Mirrors every charge the host gains from then on.' },
   martyr:       { key:'martyr',       type:'unit', unitType:'special', name:'Martyr',      icon:'✟', hp:12, cooldown:Infinity, startCharges:1, usesCharges:true, activatable:true,
@@ -27,6 +29,8 @@ var CARD_DEFS = {
     effect:'3 charges. Fire it yourself at any point during the battle: spends 1 charge to deal 2 damage. Destroys itself at 0 charges.' },
   bulwark:      { key:'bulwark',      type:'unit', unitType:'passive', name:'Bulwark',      icon:'⛊', hp:16, cooldown:Infinity,
     effect:'When the battle begins, if Bulwark is the only unit on your side, it doubles its HP and taunts — every enemy attack must target it while it lives.' },
+  pallbearer:   { key:'pallbearer',   type:'unit', unitType:'attacker', name:'Pallbearer',  icon:'⛓', power:20, hp:16, cooldown:20,
+    effect:'Every 20 ticks, attacks for 20 — reduced by 10% for every Grave Token in your graveyard.' },
   mimic:        { key:'mimic',        type:'unit', unitType:'special', name:'Mimic',        icon:'❖', hp:12, cooldown:20, startCharges:1, usesCharges:true,
     effect:"1 charge. Spend it to copy and immediately use another of your unit's action." },
 
@@ -62,6 +66,8 @@ var CARD_DEFS = {
   gravestone:      { key:'gravestone',      type:'equip', name:'Gravestone',          icon:'⚰',
     effect:"Equip. Whenever the equipped unit is attacked, adds a Grave Token to your graveyard." },
 
+  ossuary:  { key:'ossuary',  type:'continuous', name:'Ossuary', icon:'⌂',
+    effect:'Continuous. Choose a unit. Every 20 ticks, remove a Grave Token from your graveyard to give it +3 HP.' },
   blackbox: { key:'blackbox', type:'continuous', name:'Black Box', icon:'▣',
     effect:'Continuous. Gains a charge whenever one of your cards dies. At 3 charges, replays your last attack or heal.' }
 };
@@ -75,13 +81,13 @@ var TOKEN_DEFS = {
 var DECK_RECIPE = [
   ['attacker',1], ['healer',1], ['mirror',1],
   ['gravedigger',1], ['undertaker',1], ['predator',1], ['extortionist',1], ['bodyguard',1],
-  ['scavenger',1], ['parasite',1], ['martyr',1], ['loadedgun',1], ['mimic',1],
-  ['bulwark',1],
+  ['scavenger',1], ['disarmer',1], ['parasite',1], ['martyr',1], ['loadedgun',1], ['mimic',1],
+  ['bulwark',1], ['pallbearer',1],
   ['donation',1], ['liquidator',1], ['mutualdestruction',1], ['standoff',1], ['repossess',1],
   ['lastwill',1], ['hijack',1], ['cannibalize',1],
   ['deathless',1], ['veteranstandard',1], ['battery',1], ['deadmanswitch',1], ['inheritance',1],
   ['conduit',1], ['gravestone',1],
-  ['blackbox',1]
+  ['blackbox',1], ['ossuary',1]
 ];
 var MAX_COPIES = 12;
 var INITIAL_HAND = 6;

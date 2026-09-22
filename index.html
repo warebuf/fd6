@@ -304,6 +304,7 @@
 
   var STRUCTURE_HP = 30, STRUCTURE_COUNT = 3, UNIT_SLOTS = 5, TRAP_SLOTS = 5, CONTINUOUS_SLOTS = 2;
   var PREDATOR_DEATH_AOE = 5;
+  var OSSUARY_HP = 3;
   var DRAW_PER_ROUND = 3, SIM_TICKS = 60;
 
   var cardUid = 0;
@@ -431,6 +432,7 @@
       for (var j = 0; j < player.continuous.length; j++){
         var cc = player.continuous[j];
         if (cc && cc.card.key === 'blackbox' && (cc.charges || 0) >= 3) queue.push({ side: side, continuousIdx: j, prio: slotPriority(side, 'continuous', j) });
+        if (cc && cc.card.key === 'ossuary' && t % 20 === 0) queue.push({ side: side, continuousIdx: j, prio: slotPriority(side, 'continuous', j) });
       }
     }
     queue.sort(function(a, b){ return a.prio - b.prio; });
@@ -458,7 +460,12 @@
   }
 
   function processQueueItem(item){
-    if (item.continuousIdx !== undefined) return resolveBlackBox(item.side, item.continuousIdx);
+    if (item.continuousIdx !== undefined){
+      var inst = state.players[item.side].continuous[item.continuousIdx];
+      if (!inst) return undefined;
+      if (inst.card.key === 'ossuary') return resolveOssuary(item.side, item.continuousIdx);
+      return resolveBlackBox(item.side, item.continuousIdx);
+    }
     var u = state.players[item.side].units[item.idx];
     if (!u || !u.alive) return undefined;
     return performAction(item.side, item.idx, u, state.tick);
@@ -719,6 +726,9 @@
     }
 
     p.grave.push(card);
+    // Loops that hold a reference to this unit (a Gravedigger volley, a Mimic copy) check u.alive between
+    // hits, so the death has to show on the instance as well as clearing the slot.
+    u.alive = false;
     p.units[idx] = null;
 
     p.units.forEach(function(uu){ if (uu && uu.alive && uu.card.key === 'undertaker') uu.charges = (uu.charges || 0) + 1; });
@@ -742,7 +752,8 @@
     if (card.unitType === 'attacker'){
       var power = card.power;
       if (u.equip && u.equip.card.key === 'veteranstandard') power += selfPlayer.summonCount;
-      resolveAttackHit(side, 1 - side, power, selfPlayer.name + "'s " + card.name + " (Dead Man's Switch)", t);
+      power = gravePenaltyPower(selfPlayer, card, power);
+      if (power > 0) resolveAttackHit(side, 1 - side, power, selfPlayer.name + "'s " + card.name + " (Dead Man's Switch)", t, undefined, { disarm: card.key === 'disarmer' });
     } else if (card.unitType === 'healer'){
       var best = findHealTarget(selfPlayer);
       if (best) applyHeal(selfPlayer, best, card.heal, selfPlayer.name + "'s " + card.name + " (Dead Man's Switch)", t);
@@ -796,7 +807,7 @@
   }
 
   // attackerIdx: slot of the attacking unit, when there is one (Black Box replays and dying units pass none).
-  function resolveAttackHit(attackerSide, defSide, power, sourceLabel, t, attackerIdx){
+  function resolveAttackHit(attackerSide, defSide, power, sourceLabel, t, attackerIdx, opts){
     var dp = state.players[defSide];
     var target = pickAttackTarget(dp);
     if (!target) return undefined;
@@ -812,25 +823,34 @@
         message: dp.name + "'s Bodyguard offers to intercept this attack. Redirect it to Bodyguard?",
         options: [
           { label: 'Redirect to Bodyguard', onClick: function(){
-              var r = applyDamageToTarget(attackerSide, defSide, 'unit', bgSlot, power, sourceLabel, t);
+              var r = applyDamageToTarget(attackerSide, defSide, 'unit', bgSlot, power, sourceLabel, t, opts);
               if (r !== 'PAUSED') drainQueue();
           }},
           { label: 'Let it land normally', onClick: function(){
-              var r = applyDamageToTarget(attackerSide, defSide, originalTarget.kind, originalTarget.idx, power, sourceLabel, t);
+              var r = applyDamageToTarget(attackerSide, defSide, originalTarget.kind, originalTarget.idx, power, sourceLabel, t, opts);
               if (r !== 'PAUSED') drainQueue();
           }}
         ]
       });
       return 'PAUSED';
     }
-    return applyDamageToTarget(attackerSide, defSide, target.kind, target.idx, power, sourceLabel, t);
+    return applyDamageToTarget(attackerSide, defSide, target.kind, target.idx, power, sourceLabel, t, opts);
   }
 
-  function applyDamageToTarget(attackerSide, defSide, kind, idx, power, sourceLabel, t){
+  function applyDamageToTarget(attackerSide, defSide, kind, idx, power, sourceLabel, t, opts){
     var dp = state.players[defSide];
     if (kind === 'unit'){
       var target = dp.units[idx];
       if (!target) return undefined;
+      // Disarmer trades its damage for the target's gear. Traps and Bodyguard have already had their say
+      // above, so a Disarmer's swing can still be reflected or intercepted like any other attack.
+      if (opts && opts.disarm && target.equip){
+        var stripped = target.equip.card;
+        target.equip = null;
+        dp.grave.push(stripped);
+        addLog('t' + t + ': ' + sourceLabel + ' tears ' + stripped.name + ' off ' + dp.name + "'s " + target.card.name + ' and destroys it.', 'destroy');
+        return undefined;
+      }
       target.hp -= power;
       addLog('t' + t + ': ' + sourceLabel + ' hits ' + dp.name + "'s " + target.card.name + ' for ' + power + '.', 'attack');
       var condIdx = conduitTargetSlot(dp, target);   // pays out even on a lethal hit
@@ -1171,8 +1191,10 @@
     var selfPlayer = state.players[side];
     var power = card.power;
     if (u.equip && u.equip.card.key === 'veteranstandard') power += selfPlayer.summonCount;
+    power = gravePenaltyPower(selfPlayer, card, power);
+    if (power <= 0){ logIdle(side, card.name, t, 'weighed down by ' + countGraveTokens(selfPlayer) + ' Grave Token(s)'); return; }
     selfPlayer.lastAction = { kind: 'attack', amount: power };
-    return resolveAttackHit(side, 1 - side, power, selfPlayer.name + "'s " + card.name, t, slotIdx);
+    return resolveAttackHit(side, 1 - side, power, selfPlayer.name + "'s " + card.name, t, slotIdx, { disarm: card.key === 'disarmer' });
   }
 
   // Every scheduled action leaves a log line, even when it has nothing to do.
@@ -1273,7 +1295,8 @@
     if (template.unitType === 'attacker'){
       var power = template.power;
       if (selfPlayer.units[templateIdx].equip && selfPlayer.units[templateIdx].equip.card.key === 'veteranstandard') power += selfPlayer.summonCount;
-      var r = resolveAttackHit(side, 1 - side, power, label, t, slotIdx);
+      power = gravePenaltyPower(selfPlayer, template, power);
+      var r = resolveAttackHit(side, 1 - side, power, label, t, slotIdx, { disarm: template.key === 'disarmer' });
       selfPlayer.lastAction = { kind: 'attack', amount: power };
       if (r === 'PAUSED') return 'PAUSED';
     } else if (template.unitType === 'healer'){
@@ -1306,6 +1329,46 @@
       })
     });
     return 'PAUSED';
+  }
+
+  function findGraveTokenIdx(player){
+    for (var i = player.grave.length - 1; i >= 0; i--){ if (player.grave[i].key === 'gravetoken') return i; }
+    return -1;
+  }
+  // Same uid link Conduit uses, so the target can change slots without the Ossuary losing track of it.
+  function ossuaryTargetSlot(player, inst){
+    if (!inst || inst.card.key !== 'ossuary' || inst.targetUid == null) return -1;
+    return findUnitSlotByUid(player, inst.targetUid);
+  }
+  // A Pallbearer's strikes are dragged down by the dead it carries: -10% of printed power per Grave
+  // Token in its own graveyard, so 10 tokens silence it entirely.
+  function gravePenaltyPower(player, card, power){
+    if (card.key !== 'pallbearer') return power;
+    var tokens = countGraveTokens(player);
+    if (!tokens) return power;
+    return Math.max(0, Math.round(power * Math.max(0, 1 - 0.1 * tokens)));
+  }
+  function countGraveTokens(player){
+    return player.grave.filter(function(c){ return c.key === 'gravetoken'; }).length;
+  }
+
+  function resolveOssuary(side, continuousIdx){
+    var p = state.players[side];
+    var slot = p.continuous[continuousIdx];
+    if (!slot || slot.card.key !== 'ossuary') return;
+    var tokenIdx = findGraveTokenIdx(p);
+    if (tokenIdx === -1){ logIdle(side, slot.card.name, state.tick, 'no Grave Token to spend'); return; }
+    var tgt = ossuaryTargetSlot(p, slot);
+    if (tgt === -1){ logIdle(side, slot.card.name, state.tick, 'its target is gone'); return; }
+    return chargeExtortionChoice(side, function(){
+      p.grave.splice(tokenIdx, 1);
+      // A permanent +3, the way Cannibalize hands over HP — it raises the cap, so it is never wasted on a healthy unit.
+      var u = p.units[tgt];
+      u.maxHp += OSSUARY_HP;
+      u.hp += OSSUARY_HP;
+      addLog('t' + state.tick + ': ' + p.name + "'s Ossuary feeds " + u.card.name + ' +' + OSSUARY_HP + ' HP (' + u.hp + '/' + u.maxHp + ').', 'heal');
+      return undefined;
+    });
   }
 
   function resolveBlackBox(side, continuousIdx){
@@ -1490,6 +1553,16 @@
       var existingUnit = player.units[idx];
       var att = state.attaching;
       if (att && att.side === side){
+        // Choosing a target for the Ossuary in continuous slot att.idx.
+        if (att.kind === 'ossuary'){
+          var oss = player.continuous[att.idx];
+          if (existingUnit && existingUnit.alive && oss && oss.card.key === 'ossuary'){
+            oss.targetUid = existingUnit.card.uid;
+            state.attaching = null;
+            render();
+          }
+          return;
+        }
         // Choosing a target for the Conduit worn by the unit in att.idx — including that unit itself.
         if (att.kind === 'conduit'){
           var wearer = player.units[att.idx];
@@ -1538,13 +1611,18 @@
     if (zone === 'trap' || zone === 'continuous'){
       state.attaching = null;
       var arr = zone === 'trap' ? player.traps : player.continuous;
-      if (arr[idx]) return; // occupied: removal is a double-click (see removePlacedCard)
+      if (arr[idx]){
+        // Occupied: clicking a placed Ossuary re-opens target selection. Removal is still a double-click.
+        if (arr[idx].card.key === 'ossuary'){ state.selected = null; state.attaching = { side: side, idx: idx, kind: 'ossuary' }; render(); }
+        return;
+      }
       if (!selCard) return;
       if (zone === 'trap' && selCard.type !== 'trap') return;
       if (zone === 'continuous' && selCard.type !== 'continuous') return;
       player.hand.splice(sel.idx, 1);
-      arr[idx] = zone === 'continuous' ? { card: selCard, charges: 0 } : { card: selCard };
+      arr[idx] = zone === 'continuous' ? { card: selCard, charges: 0, targetUid: null } : { card: selCard };
       state.selected = null;
+      if (selCard.key === 'ossuary') state.attaching = { side: side, idx: idx, kind: 'ossuary' };
       render();
     }
   }
@@ -1629,6 +1707,11 @@
       var u = p.units[loc.idx];
       if (!u || u.card.uid !== ins.card.uid) return null;
       var parts = ['On ' + p.name + "'s board (slot " + (loc.idx + 1) + ')', 'HP ' + u.hp + '/' + u.maxHp];
+      if (u.card.key === 'pallbearer'){
+        var tk = countGraveTokens(p);
+        parts.push(tk === 0 ? 'No Grave Tokens — hits for its full ' + u.card.power
+                            : (tk + ' Grave Token(s): -' + (tk * 10) + '% → hits for ' + gravePenaltyPower(p, u.card, u.card.power)));
+      }
       if (ins.card.usesCharges) parts.push('Charges ' + (u.charges || 0));
       if (ins.card.activatable) parts.push('Activate manually during battle');
       else if (isFinite(ins.card.cooldown)){
@@ -1653,7 +1736,14 @@
       var arr = loc.zone === 'trap' ? p.traps : p.continuous;
       var inst = arr[loc.idx];
       if (!inst || inst.card.uid !== ins.card.uid) return null;
-      if (loc.zone === 'continuous') return ['Active on ' + p.name + "'s side", 'Charges ' + (inst.charges || 0) + '/3'];
+      if (loc.zone === 'continuous'){
+        if (inst.card.key === 'ossuary'){
+          var oslot = ossuaryTargetSlot(p, inst);
+          return ['Active on ' + p.name + "'s side", countGraveTokens(p) + ' Grave Token(s) in the graveyard',
+                  oslot === -1 ? 'No target — click it during setup to pick one' : ('Feeding ' + p.units[oslot].card.name), 'Acts every 20 ticks'];
+        }
+        return ['Active on ' + p.name + "'s side", 'Charges ' + (inst.charges || 0) + '/3'];
+      }
       if (inst.card.manualArm) return [(inst.primed ? 'Active' : 'Dormant') + ' on ' + p.name + "'s side", inst.primed ? 'Catches the next enemy attack' : 'Activate it during the battle'];
       if (inst.card.manualFire) return ['Ready on ' + p.name + "'s side", 'Activate it during the battle'];
       return ['Armed on ' + p.name + "'s side"];
@@ -1731,15 +1821,16 @@
     var card = u.card;
     var att = (interactive && state.attaching && state.attaching.side === side) ? state.attaching : null;
     var equipTarget = !att && !!(selCard && selCard.type === 'equip' && !u.equip);
-    var pickingConduit = !!(att && att.kind === 'conduit');
-    var hostTarget = !!(att && u.alive && (pickingConduit || att.idx !== idx));
-    var isAttaching = !!(att && att.idx === idx);
+    // Parasite can't host itself; Conduit and Ossuary may target any living unit.
+    var picksAnyUnit = !!(att && (att.kind === 'conduit' || att.kind === 'ossuary'));
+    var hostTarget = !!(att && u.alive && (picksAnyUnit || att.idx !== idx));
+    var isAttaching = !!(att && att.kind !== 'ossuary' && att.idx === idx);
     var isNext = !!(nextActor && nextActor.side === side && nextActor.idx === idx);
     var c = el('div', 'card placed ' + card.key + ' ' + cardColorClass(card) + (interactive ? ' selectable' : '') + ((equipTarget || hostTarget) ? ' valid-target' : '') + (isAttaching ? ' is-selected' : '') + (isNext ? ' next-actor' : ''),
       { tabindex:'0', role:'button', title: card.name + ' — ' + card.effect + (interactive ? ' (double-click to return to hand)' : '') });
     var pct = Math.max(0, u.hp / u.maxHp);
     var lines;
-    if (card.unitType === 'attacker') lines = ['PWR ' + card.power, ''];
+    if (card.unitType === 'attacker') lines = ['PWR ' + gravePenaltyPower(player, card, card.power), ''];
     else if (card.unitType === 'healer') lines = ['HEAL ' + card.heal, ''];
     else if (card.unitType === 'passive') lines = ['PASSIVE', ''];
     else lines = ['SPECIAL', ''];
@@ -1807,7 +1898,12 @@
     var isNext = !!(zone === 'continuous' && nextActor && nextActor.side === side && nextActor.continuousIdx === idx);
     var c = el('div', 'card placed trap-card ' + card.key + ' ' + cardColorClass(card) + (interactive ? ' selectable' : '') + (isNext ? ' next-actor' : ''),
       { tabindex:'0', role:'button', title: card.name + ' — ' + card.effect + (interactive ? ' (double-click to return to hand)' : '') });
-    var statLine = zone === 'continuous' ? ('⚡' + (inst.charges || 0) + '/3')
+    var ossLine = '';
+    if (card.key === 'ossuary'){
+      var ot = ossuaryTargetSlot(player, inst);
+      ossLine = '<div class="stat mono">' + (ot === -1 ? 'NO TARGET' : ('→ ' + player.units[ot].card.name)) + '</div>';
+    }
+    var statLine = zone === 'continuous' ? (card.key === 'ossuary' ? ('◌ ' + countGraveTokens(player)) : ('⚡' + (inst.charges || 0) + '/3'))
       : card.manualArm ? (inst.primed ? 'ACTIVE' : 'DORMANT') : card.manualFire ? 'READY' : 'ARMED';
     if (zone === 'trap' && isDeclared(card.uid)) statLine = 'DECLARED';
     if (zone === 'trap' && canActivateTrap(side, idx)) statLine = '<button class="activate-btn" type="button" title="Activate now: catches the next enemy attack">Activate</button>';
@@ -1816,7 +1912,7 @@
       (isNext ? '<div class="next-tag">NEXT</div>' : '') +
       '<div class="icon">' + card.icon + '</div>' +
       '<div class="name">' + card.name + '</div>' +
-      '<div class="stat mono">' + statLine + '</div>';
+      '<div class="stat mono">' + statLine + '</div>' + ossLine;
     var armBtn = c.querySelector('.activate-btn');
     if (armBtn) armBtn.addEventListener('click', function(e){ e.stopPropagation(); activateTrap(side, idx); });
     c.addEventListener('click', function(){ inspectCard(card, { side: side, zone: zone, idx: idx }); });

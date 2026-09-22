@@ -6,5 +6,9 @@
   {
     "file": "gravedigger.txt",
     "name": "gravedigger"
+  },
+  {
+    "file": "gravedigger2.txt",
+    "name": "gravedigger2"
   }
 ]

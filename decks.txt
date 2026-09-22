@@ -11,10 +11,12 @@ Predator x1
 Extortionist x1
 Bodyguard x1
 Scavenger x1
+Disarmer x1
 Parasite x1
 Martyr x1
 Loaded Gun x1
 Bulwark x1
+Pallbearer x1
 Mimic x1
 Donation x1
 Liquidator x1
@@ -31,6 +33,7 @@ Dead Man's Switch x1
 Inheritance x1
 Conduit x1
 Black Box x1
+Ossuary x1
 
 [Player 2]
 Striker x1
@@ -42,10 +45,12 @@ Predator x1
 Extortionist x1
 Bodyguard x1
 Scavenger x1
+Disarmer x1
 Parasite x1
 Martyr x1
 Loaded Gun x1
 Bulwark x1
+Pallbearer x1
 Mimic x1
 Donation x1
 Liquidator x1
@@ -62,3 +67,4 @@ Dead Man's Switch x1
 Inheritance x1
 Conduit x1
 Black Box x1
+Ossuary x1

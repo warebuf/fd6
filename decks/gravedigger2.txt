@@ -1,0 +1,11 @@
+# Deck: gravedigger2
+# One card per line: <card name> x<copies>
+
+Medic x2
+Mirror Wall x2
+Gravedigger x3
+Bodyguard x3
+Bulwark x1
+Mutual Destruction x1
+Gravestone x2
+Ossuary x2
