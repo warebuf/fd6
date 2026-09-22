@@ -405,7 +405,7 @@
     predator:     { key:'predator',     type:'unit', unitType:'attacker', name:'Predator',    icon:'♦', power:16, hp:18, cooldown:20,
       effect:'Powerful attacker (16 power). When it dies, its death throes hit every other unit on your side for 5.' },
     extortionist: { key:'extortionist', type:'unit', unitType:'passive', name:'Extortionist', icon:'¤', hp:14, cooldown:Infinity,
-      effect:'Whenever the opponent activates a trap, continuous, or special ability, one of your units gains 1 charge.' },
+      effect:'Whenever the opponent activates a trap, continuous, or special ability, choose one of your cards to gain 1 charge.' },
     bodyguard:    { key:'bodyguard',    type:'unit', unitType:'passive', name:'Bodyguard',    icon:'⛨', hp:22, cooldown:Infinity,
       effect:'May redirect an attack aimed at another of your units or structures onto itself instead.' },
     scavenger:    { key:'scavenger',    type:'unit', unitType:'attacker', name:'Scavenger',   icon:'↻', power:5, hp:15, cooldown:20,
@@ -451,13 +451,13 @@
       effect:'Continuous. Gains a charge whenever one of your cards dies. At 3 charges, replays your last attack or heal.' }
   };
   var DECK_RECIPE = [
-    ['attacker',6], ['healer',4], ['mirror',2],
+    ['attacker',1], ['healer',1], ['mirror',1],
     ['gravedigger',1], ['undertaker',1], ['predator',1], ['extortionist',1], ['bodyguard',1],
     ['scavenger',1], ['parasite',1], ['martyr',1], ['loadedgun',1], ['mimic',1],
     ['donation',1], ['liquidator',1], ['mutualdestruction',1], ['standoff',1], ['repossess',1],
     ['lastwill',1], ['hijack',1], ['cannibalize',1],
     ['deathless',1], ['veteranstandard',1], ['battery',1], ['deadmanswitch',1], ['inheritance',1],
-    ['blackbox',2]
+    ['blackbox',1]
   ];
   var STRUCTURE_HP = 30, STRUCTURE_COUNT = 3, UNIT_SLOTS = 5, TRAP_SLOTS = 5, CONTINUOUS_SLOTS = 2;
   var PREDATOR_DEATH_AOE = 5;
@@ -728,6 +728,7 @@
     return findOtherLivingUnit(player, excludeIdx);
   }
 
+  // Used only inside tryHijack, which is deep in synchronous attack/heal resolution and can't pause for a choice.
   function chargeExtortion(activatingSide){
     var other = 1 - activatingSide;
     var op = state.players[other];
@@ -739,6 +740,32 @@
       gainCharges(other, idx, 1);
       addLog(op.name + "'s Extortionist extracts 1 charge for " + op.units[idx].card.name + '.', 'trap');
     }
+  }
+
+  // Lets the Extortionist's owner pick which of their units gets the charge. Calls next() once resolved
+  // (synchronously if no Extortionist is out) and returns 'PAUSED' if it opened a choice modal.
+  function chargeExtortionChoice(activatingSide, next){
+    var other = 1 - activatingSide;
+    var op = state.players[other];
+    var hasExtortionist = op.units.some(function(u){ return u && u.alive && u.card.key === 'extortionist'; });
+    if (!hasExtortionist) return next();
+    var targets = [];
+    op.units.forEach(function(u, i){ if (u && u.alive) targets.push(i); });
+    if (targets.length === 0) return next();
+    var unitLabel = function(i){ var u = op.units[i]; return u.card.name + ' (' + u.hp + '/' + u.maxHp + ' HP)'; };
+    pauseForChoice({
+      title: 'Extortionist',
+      message: op.name + ', choose which of your cards gains 1 charge from Extortionist.',
+      options: targets.map(function(i){
+        return { label: unitLabel(i), onClick: function(){
+          gainCharges(other, i, 1);
+          addLog(op.name + "'s Extortionist extracts 1 charge for " + op.units[i].card.name + '.', 'trap');
+          var result = next();
+          if (result !== 'PAUSED') drainQueue();
+        }};
+      })
+    });
+    return 'PAUSED';
   }
 
   function gainCharges(side, slotIdx, amount){
@@ -920,26 +947,28 @@
         var lwIdx = -1;
         for (var i = 0; i < dp.traps.length; i++){ if (dp.traps[i] && dp.traps[i].card.key === 'lastwill'){ lwIdx = i; break; } }
         if (lwIdx !== -1){
-          chargeExtortion(defSide);
           var dyingName = target.card.name;
-          pauseForChoice({
-            title: "Last Will",
-            message: dp.name + "'s " + dyingName + ' has taken lethal damage. Save it at 1 HP, or let it die and draw 2 cards?',
-            options: [
-              { label: 'Save at 1 HP', onClick: function(){
-                  target.hp = 1;
-                  addLog(dp.name + "'s Last Will saves " + dyingName + ' at 1 HP.', 'trap');
-                  consumeTrap(defSide, lwIdx);
-                  drainQueue();
-              }},
-              { label: 'Let it die, draw 2', onClick: function(){
-                  destroyUnit(defSide, idx, { killedByOpponent: true });
-                  drawCards(dp, 2);
-                  addLog(dp.name + "'s Last Will lets " + dyingName + ' die — 2 cards drawn.', 'trap');
-                  consumeTrap(defSide, lwIdx);
-                  drainQueue();
-              }}
-            ]
+          chargeExtortionChoice(defSide, function(){
+            pauseForChoice({
+              title: "Last Will",
+              message: dp.name + "'s " + dyingName + ' has taken lethal damage. Save it at 1 HP, or let it die and draw 2 cards?',
+              options: [
+                { label: 'Save at 1 HP', onClick: function(){
+                    target.hp = 1;
+                    addLog(dp.name + "'s Last Will saves " + dyingName + ' at 1 HP.', 'trap');
+                    consumeTrap(defSide, lwIdx);
+                    drainQueue();
+                }},
+                { label: 'Let it die, draw 2', onClick: function(){
+                    destroyUnit(defSide, idx, { killedByOpponent: true });
+                    drawCards(dp, 2);
+                    addLog(dp.name + "'s Last Will lets " + dyingName + ' die — 2 cards drawn.', 'trap');
+                    consumeTrap(defSide, lwIdx);
+                    drainQueue();
+                }}
+              ]
+            });
+            return 'PAUSED';
           });
           return 'PAUSED';
         }
@@ -975,18 +1004,20 @@
       foundIdx = i; break;
     }
     if (foundIdx === -1) return false;
-    chargeExtortion(defSide);
     var key = dp.traps[foundIdx].card.key;
-    switch (key){
-      case 'mirror': resolveMirror(defSide, attackerSide, foundIdx, attackerIdx); return true;
-      case 'donation': resolveDonation(defSide, attackerSide, foundIdx); return true;
-      case 'liquidator': resolveLiquidator(defSide, foundIdx); return true;
-      case 'repossess': resolveRepossess(defSide, attackerSide, foundIdx); return true;
-      case 'cannibalize': resolveCannibalize(defSide, foundIdx); return true;
-      case 'standoff': return resolveStandoff(defSide, attackerSide, foundIdx);
-      case 'mutualdestruction': return resolveMutualDestruction(defSide, attackerSide, foundIdx, t);
-    }
-    return false;
+    var resolveNow = function(){
+      switch (key){
+        case 'mirror': resolveMirror(defSide, attackerSide, foundIdx, attackerIdx); return true;
+        case 'donation': resolveDonation(defSide, attackerSide, foundIdx); return true;
+        case 'liquidator': resolveLiquidator(defSide, foundIdx); return true;
+        case 'repossess': resolveRepossess(defSide, attackerSide, foundIdx); return true;
+        case 'cannibalize': resolveCannibalize(defSide, foundIdx); return true;
+        case 'standoff': return resolveStandoff(defSide, attackerSide, foundIdx);
+        case 'mutualdestruction': return resolveMutualDestruction(defSide, attackerSide, foundIdx, t);
+      }
+      return false;
+    };
+    return chargeExtortionChoice(defSide, resolveNow);
   }
 
   function resolveMirror(defSide, attackerSide, foundIdx, attackerIdx){
@@ -1383,17 +1414,19 @@
     var slot = p.continuous[continuousIdx];
     if (!slot || slot.card.key !== 'blackbox') return;
     if ((slot.charges || 0) < 3) return;
-    chargeExtortion(side);
-    slot.charges -= 3;
-    if (!p.lastAction){ logIdle(side, slot.card.name, state.tick, 'no attack or heal to replay'); return; }
-    var label = p.name + "'s Black Box (replay)";
-    if (p.lastAction.kind === 'attack'){
-      var r = resolveAttackHit(side, 1 - side, p.lastAction.amount, label, state.tick);
-      if (r === 'PAUSED') return 'PAUSED';
-    } else {
-      var best = findHealTarget(p);
-      if (best) applyHeal(p, best, p.lastAction.amount, label, state.tick);
-    }
+    var resolveNow = function(){
+      slot.charges -= 3;
+      if (!p.lastAction){ logIdle(side, slot.card.name, state.tick, 'no attack or heal to replay'); return; }
+      var label = p.name + "'s Black Box (replay)";
+      if (p.lastAction.kind === 'attack'){
+        var r = resolveAttackHit(side, 1 - side, p.lastAction.amount, label, state.tick);
+        if (r === 'PAUSED') return 'PAUSED';
+      } else {
+        var best = findHealTarget(p);
+        if (best) applyHeal(p, best, p.lastAction.amount, label, state.tick);
+      }
+    };
+    return chargeExtortionChoice(side, resolveNow);
   }
 
   // ---------- Player-activated abilities ----------
@@ -1421,18 +1454,20 @@
     }
     // manualFire: resolves immediately
     addLog('t' + state.tick + ': ' + state.players[side].name + ' activates ' + tr.card.name + '.', 'trap');
-    chargeExtortion(side);
-    var result;
     state.manualPause = true; // if this opens a choice, resuming should not consume a queued Step
-    switch (tr.card.key){
-      case 'liquidator': result = resolveLiquidator(side, idx); break;
-      case 'cannibalize': result = resolveCannibalize(side, idx); break;
-      case 'standoff': result = resolveStandoff(side, 1 - side, idx); break;
-      case 'donation': resolveDonation(side, 1 - side, idx); break;
-      case 'repossess': resolveRepossess(side, 1 - side, idx); break;
-    }
-    if (result !== 'PAUSED') state.manualPause = false;
-    render();
+    var resolveNow = function(){
+      var result;
+      switch (tr.card.key){
+        case 'liquidator': result = resolveLiquidator(side, idx); break;
+        case 'cannibalize': result = resolveCannibalize(side, idx); break;
+        case 'standoff': result = resolveStandoff(side, 1 - side, idx); break;
+        case 'donation': resolveDonation(side, 1 - side, idx); break;
+        case 'repossess': resolveRepossess(side, 1 - side, idx); break;
+      }
+      return result;
+    };
+    var result = chargeExtortionChoice(side, resolveNow);
+    if (result !== 'PAUSED'){ state.manualPause = false; render(); }
   }
 
   function activateUnit(side, idx){
