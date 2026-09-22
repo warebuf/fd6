@@ -416,6 +416,7 @@
     state.tick = 0;
     state.selected = null;
     state.attaching = null;
+    state.players.forEach(refreshBulwarks);
     addLog('Round ' + state.round + ': boards revealed. Battle begins. Press Step to advance.', 'meta');
     render();
   }
@@ -568,6 +569,29 @@
     return -1;
   }
 
+  // ---------- Bulwark ----------
+  // Bulwark is the reward for fielding nothing else: alone on its side it doubles up and taunts, so
+  // every enemy attack has to chew through it first. The bonus is re-evaluated whenever the board changes
+  // during setup and locked in when the battle begins, so units dying mid-round don't switch it on halfway.
+  function countLivingUnits(player){
+    return player.units.filter(function(u){ return u && u.alive; }).length;
+  }
+  function isTaunting(u){ return !!(u && u.alive && u.taunting); }
+  function refreshBulwarks(player){
+    var lonely = countLivingUnits(player) === 1;
+    player.units.forEach(function(u){
+      if (!u || !u.alive || u.card.key !== 'bulwark') return;
+      if (!!u.taunting === lonely) return;
+      u.taunting = lonely;
+      if (lonely){ u.maxHp += u.card.hp; u.hp += u.card.hp; }          // the bonus is +base HP, i.e. double
+      else { u.maxHp -= u.card.hp; u.hp = Math.min(u.hp, u.maxHp); }
+    });
+  }
+  function findTauntSlot(player){
+    for (var i = 0; i < player.units.length; i++){ if (isTaunting(player.units[i])) return i; }
+    return -1;
+  }
+
   // Charges are pooled across a player's living units (see tryHijack): these helpers read and spend that pool.
   function totalCharges(player){
     var sum = 0;
@@ -583,6 +607,19 @@
       u.charges -= take;
       amount -= take;
     }
+  }
+
+  // Conduit tracks its target by card uid rather than slot, so the link survives the target moving slots and
+  // simply goes quiet if the target dies or the two of them end up on opposite boards (Donation, Scavenger).
+  function findUnitSlotByUid(player, uid){
+    for (var i = 0; i < player.units.length; i++){
+      if (player.units[i] && player.units[i].alive && player.units[i].card.uid === uid) return i;
+    }
+    return -1;
+  }
+  function conduitTargetSlot(player, u){
+    if (!u || !u.equip || u.equip.card.key !== 'conduit' || u.equip.targetUid == null) return -1;
+    return findUnitSlotByUid(player, u.equip.targetUid);
   }
 
   // Prefers a unit that can actually spend charges; otherwise any living unit can hold them for Hijack / Standoff.
@@ -767,6 +804,8 @@
 
   // ---------- Attack resolution pipeline ----------
   function pickAttackTarget(dp){
+    var taunt = findTauntSlot(dp);
+    if (taunt !== -1) return { kind: 'unit', idx: taunt };
     for (var i = 0; i < dp.units.length; i++){ if (dp.units[i] && dp.units[i].alive) return { kind: 'unit', idx: i }; }
     for (var j = 0; j < dp.structures.length; j++){ if (dp.structures[j].alive) return { kind: 'structure', idx: j }; }
     return null;
@@ -781,7 +820,8 @@
     if (trapResult === 'PAUSED') return 'PAUSED';
     if (trapResult === true) return undefined;
     var bgSlot = findLivingBodyguardSlot(dp);
-    if (bgSlot !== -1 && !(target.kind === 'unit' && target.idx === bgSlot)){
+    // A taunt beats Bodyguard's offer: the attack is already forced onto the Bulwark.
+    if (bgSlot !== -1 && !(target.kind === 'unit' && target.idx === bgSlot) && findTauntSlot(dp) === -1){
       var originalTarget = target;
       pauseForChoice({
         title: 'Bodyguard',
@@ -809,6 +849,11 @@
       if (!target) return undefined;
       target.hp -= power;
       addLog('t' + t + ': ' + sourceLabel + ' hits ' + dp.name + "'s " + target.card.name + ' for ' + power + '.', 'attack');
+      var condIdx = conduitTargetSlot(dp, target);   // pays out even on a lethal hit
+      if (condIdx !== -1){
+        gainCharges(defSide, condIdx, 1);
+        addLog(dp.name + "'s Conduit passes 1 charge to " + dp.units[condIdx].card.name + '.', 'meta');
+      }
       if (target.hp <= 0){
         var lwIdx = -1;
         for (var i = 0; i < dp.traps.length; i++){ if (dp.traps[i] && dp.traps[i].card.key === 'lastwill'){ lwIdx = i; break; } }
@@ -1408,6 +1453,16 @@
       var existingUnit = player.units[idx];
       var att = state.attaching;
       if (att && att.side === side){
+        // Choosing a target for the Conduit worn by the unit in att.idx — including that unit itself.
+        if (att.kind === 'conduit'){
+          var wearer = player.units[att.idx];
+          if (existingUnit && existingUnit.alive && wearer && wearer.equip && wearer.equip.card.key === 'conduit'){
+            wearer.equip.targetUid = existingUnit.card.uid;
+            state.attaching = null;
+            render();
+          }
+          return;
+        }
         // Choosing a host for the Parasite in att.idx.
         if (idx === att.idx){ state.attaching = null; render(); return; }
         if (existingUnit && existingUnit.alive){
@@ -1419,22 +1474,24 @@
       }
       if (existingUnit && selCard && selCard.type === 'equip' && !existingUnit.equip){
         player.hand.splice(sel.idx, 1);
-        existingUnit.equip = { card: selCard, storedCharges: 0 };
+        existingUnit.equip = { card: selCard, storedCharges: 0, targetUid: null };
         state.selected = null;
+        if (selCard.key === 'conduit') state.attaching = { side: side, idx: idx, kind: 'conduit' };
         render();
         return;
       }
       if (existingUnit){
         // Clicking a placed Parasite starts (or restarts) host selection; removal is a double-click.
-        if (existingUnit.card.key === 'parasite'){ state.selected = null; state.attaching = { side: side, idx: idx }; render(); }
+        if (existingUnit.card.key === 'parasite'){ state.selected = null; state.attaching = { side: side, idx: idx, kind: 'parasite' }; render(); }
         return;
       }
       if (selCard && selCard.type === 'unit'){
         player.hand.splice(sel.idx, 1);
-        player.units[idx] = { card: selCard, hp: selCard.hp, maxHp: selCard.hp, alive: true, charges: selCard.startCharges || 0, equip: null, originalOwner: side, hostSlot: null };
+        player.units[idx] = { card: selCard, hp: selCard.hp, maxHp: selCard.hp, alive: true, charges: selCard.startCharges || 0, equip: null, originalOwner: side, hostSlot: null, taunting: false };
         player.summonCount += 1;
+        refreshBulwarks(player);
         state.selected = null;
-        if (selCard.key === 'parasite') state.attaching = { side: side, idx: idx }; // go straight to picking a host
+        if (selCard.key === 'parasite') state.attaching = { side: side, idx: idx, kind: 'parasite' }; // go straight to picking a host
         render();
         return;
       }
@@ -1466,6 +1523,7 @@
       player.hand.push(u.card);
       player.units[idx] = null;
       player.units.forEach(function(uu){ if (uu && uu.hostSlot === idx) uu.hostSlot = null; });
+      refreshBulwarks(player);
     } else {
       var arr = zone === 'trap' ? player.traps : player.continuous;
       if (!arr[idx]) return;
@@ -1541,9 +1599,14 @@
         if (state.phase === 'simulating' || state.phase === 'roundEnd') parts.push('Next action in ' + (ins.card.cooldown - (state.tick % ins.card.cooldown)) + ' ticks');
       }
       else if (ins.card.unitType === 'passive') parts.push('Passive — never takes a turn');
+      if (ins.card.key === 'bulwark') parts.push(u.taunting ? 'Doubled and taunting — enemy attacks must hit it' : 'Not taunting — it is not alone on your side');
       if (u.equip){
         var eq = 'Equipped: ' + u.equip.card.name;
         if (u.equip.card.key === 'battery') eq += ' (' + (u.equip.storedCharges || 0) + '/3 stored)';
+        if (u.equip.card.key === 'conduit'){
+          var cslot = conduitTargetSlot(p, u);
+          eq += cslot === -1 ? ' (no target)' : (' \u2192 ' + p.units[cslot].card.name);
+        }
         parts.push(eq);
       }
       if (u.hostSlot != null && p.units[u.hostSlot]) parts.push('Attached to ' + p.units[u.hostSlot].card.name);
@@ -1652,7 +1715,8 @@
     var card = u.card;
     var att = (interactive && state.attaching && state.attaching.side === side) ? state.attaching : null;
     var equipTarget = !att && !!(selCard && selCard.type === 'equip' && !u.equip);
-    var hostTarget = !!(att && att.idx !== idx && u.alive);
+    var pickingConduit = !!(att && att.kind === 'conduit');
+    var hostTarget = !!(att && u.alive && (pickingConduit || att.idx !== idx));
     var isAttaching = !!(att && att.idx === idx);
     var isNext = !!(nextActor && nextActor.side === side && nextActor.idx === idx);
     var c = el('div', 'card placed ' + card.key + ' ' + cardColorClass(card) + (interactive ? ' selectable' : '') + ((equipTarget || hostTarget) ? ' valid-target' : '') + (isAttaching ? ' is-selected' : '') + (isNext ? ' next-actor' : ''),
@@ -1663,6 +1727,7 @@
     else if (card.unitType === 'healer') lines = ['HEAL ' + card.heal, ''];
     else if (card.unitType === 'passive') lines = ['PASSIVE', ''];
     else lines = ['SPECIAL', ''];
+    if (u.taunting) lines[0] = 'TAUNT';
     if (card.key === 'parasite'){
       var host = u.hostSlot != null ? player.units[u.hostSlot] : null;
       lines[0] = host ? ('→ ' + host.card.name) : 'NO HOST';
@@ -1672,7 +1737,12 @@
     var chargeLine = (card.usesCharges || (u.charges || 0) > 0) ? ('<div class="stat mono">⚡' + (u.charges || 0) + '</div>') : '';
     var activatable = canActivate(side, idx);
     if (activatable) lines[0] = '<button class="activate-btn" type="button" title="Spend ' + (card.activateCost || 1) + ' charge(s) now">' + (card.key === 'undertaker' ? 'Recall' : 'Fire') + '</button>';
-    var equipBadge = u.equip ? ('<div class="equip-badge" title="' + u.equip.card.name + ' — ' + u.equip.card.effect + ' (click for details)">' + u.equip.card.icon + '</div>') : '';
+    var equipNote = '';
+    if (u.equip && u.equip.card.key === 'conduit'){
+      var ct = conduitTargetSlot(player, u);
+      equipNote = ct === -1 ? ' — no target' : (' — charging ' + player.units[ct].card.name);
+    }
+    var equipBadge = u.equip ? ('<div class="equip-badge" title="' + u.equip.card.name + equipNote + ' — ' + u.equip.card.effect + ' (click for details' + (u.equip.card.key === 'conduit' ? ', click during setup to re-target' : '') + ')">' + u.equip.card.icon + '</div>') : '';
     c.innerHTML =
       equipBadge + prioBadge(side, 'unit', idx) +
       (isNext ? '<div class="next-tag">NEXT</div>' : '') +
@@ -1684,7 +1754,11 @@
       '<div class="hp-bar"><div class="hp-fill' + (pct < .34 ? ' low' : '') + '" style="width:' + (pct*100) + '%"></div></div>' +
       '<div class="charge-bar"><div class="charge-fill" style="width:' + (chargePct*100) + '%"></div></div>';
     var badgeEl = c.querySelector('.equip-badge');
-    if (badgeEl) badgeEl.addEventListener('click', function(e){ e.stopPropagation(); inspectCard(u.equip.card, null); });
+    if (badgeEl) badgeEl.addEventListener('click', function(e){
+      e.stopPropagation();
+      inspectCard(u.equip.card, null);
+      if (interactive && u.equip.card.key === 'conduit'){ state.selected = null; state.attaching = { side: side, idx: idx, kind: 'conduit' }; render(); }
+    });
     var fireBtn = c.querySelector('.activate-btn');
     if (fireBtn) fireBtn.addEventListener('click', function(e){ e.stopPropagation(); activateUnit(side, idx); });
     c.addEventListener('click', function(){ inspectCard(card, { side: side, zone: 'unit', idx: idx }); if (interactive) onSlotClick(side, 'unit', idx); });

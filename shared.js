@@ -25,6 +25,8 @@ var CARD_DEFS = {
     effect:'1 charge. Activate it during the battle: give a target unit 2 charges, then Martyr destroys itself.' },
   loadedgun:    { key:'loadedgun',    type:'unit', unitType:'special', name:'Loaded Gun',   icon:'☍', hp:10, cooldown:Infinity, startCharges:3, usesCharges:true, activatable:true,
     effect:'3 charges. Fire it yourself at any point during the battle: spends 1 charge to deal 2 damage. Destroys itself at 0 charges.' },
+  bulwark:      { key:'bulwark',      type:'unit', unitType:'passive', name:'Bulwark',      icon:'⛊', hp:14, cooldown:Infinity,
+    effect:'When the battle begins, if Bulwark is the only unit on your side, it doubles its HP and taunts — every enemy attack must target it while it lives.' },
   mimic:        { key:'mimic',        type:'unit', unitType:'special', name:'Mimic',        icon:'❖', hp:12, cooldown:20, startCharges:1, usesCharges:true,
     effect:"1 charge. Spend it to copy and immediately use another of your unit's action." },
 
@@ -53,6 +55,8 @@ var CARD_DEFS = {
     effect:"Equip. Stores up to 3 of the equipped unit's charges; on death, dumps them into another unit." },
   deadmanswitch:   { key:'deadmanswitch',   type:'equip', name:"Dead Man's Switch",   icon:'☢',
     effect:'Equip. When the equipped unit dies, it immediately acts once more for free.' },
+  conduit:         { key:'conduit',         type:'equip', name:'Conduit',             icon:'⌁',
+    effect:'Equip. Pick one of your units as its target when you equip it. Whenever the equipped unit is attacked, the target gains 1 charge.' },
   inheritance:     { key:'inheritance',     type:'equip', name:'Inheritance',         icon:'⚱',
     effect:'Equip. When the equipped unit dies, moves itself (and its stored charges) to another of your units.' },
 
@@ -64,9 +68,11 @@ var DECK_RECIPE = [
   ['attacker',1], ['healer',1], ['mirror',1],
   ['gravedigger',1], ['undertaker',1], ['predator',1], ['extortionist',1], ['bodyguard',1],
   ['scavenger',1], ['parasite',1], ['martyr',1], ['loadedgun',1], ['mimic',1],
+  ['bulwark',1],
   ['donation',1], ['liquidator',1], ['mutualdestruction',1], ['standoff',1], ['repossess',1],
   ['lastwill',1], ['hijack',1], ['cannibalize',1],
   ['deathless',1], ['veteranstandard',1], ['battery',1], ['deadmanswitch',1], ['inheritance',1],
+  ['conduit',1],
   ['blackbox',1]
 ];
 var MAX_COPIES = 12;
