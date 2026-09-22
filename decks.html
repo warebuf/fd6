@@ -22,7 +22,10 @@
     display:flex; flex-direction:column; min-height:0; overflow:hidden;
   }
   .pool-pane{ flex:1 1 56%; }
-  .deck-pane{ flex:1 1 44%; }
+  .side-col{ flex:1 1 44%; display:flex; flex-direction:column; gap:12px; min-height:0; }
+  .deck-pane{ flex:1 1 auto; }
+  /* fixed height so hovering cards with longer effect text doesn't push the deck list around */
+  .side-col .inspector{ height:150px; overflow-y:auto; }
 
   .pane-head{ flex:0 0 auto; padding:10px 12px; border-bottom:1px solid var(--line); display:flex; flex-direction:column; gap:8px; }
   .pane-title{ font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:.85rem; letter-spacing:.03em; text-transform:uppercase; color:var(--text-dim); }
@@ -70,6 +73,35 @@
   .row-card.compact .mini-btn{ width:22px; height:22px; padding:0; border-radius:6px; font-size:.85rem; line-height:1; }
 
   .deck-actions{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; padding:0 12px; }
+  .shared-status{ font-size:.68rem; color:var(--text-dim); padding:4px 12px 0; }
+  .shared-status.error{ color:var(--danger); }
+
+  /* public decks browser */
+  .modal{ position:fixed; inset:0; background:rgba(8,12,18,.55); display:flex; align-items:center; justify-content:center; padding:16px; z-index:50; }
+  .modal-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow);
+    width:100%; max-width:720px; max-height:100%; display:flex; flex-direction:column; min-height:0;
+  }
+  .modal-head{ flex:0 0 auto; display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--line); }
+  .modal-head input[type="search"]{
+    flex:1 1 auto; min-width:0; font-family:inherit; font-size:.76rem; padding:5px 9px; border-radius:8px;
+    border:1px solid var(--line); background:var(--panel-2); color:var(--text);
+  }
+  .modal-list{ flex:1 1 auto; min-height:0; overflow-y:auto; }
+  .pub-deck{ padding:10px 12px; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:6px; }
+  .pub-deck:first-child{ border-top:none; }
+  .pub-head{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .pub-name{ font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:.9rem; }
+  .pub-meta{ font-size:.66rem; color:var(--text-dim); flex:1 1 auto; }
+  .pub-actions{ display:flex; gap:4px; }
+  .pub-cards{ display:flex; flex-wrap:wrap; gap:4px; }
+  .pub-chip{ font-size:.66rem; padding:2px 7px; border-radius:999px; background:var(--panel-2); border:1px solid var(--line); border-left-width:3px; white-space:nowrap; }
+  .pub-chip.cattack{ border-left-color:var(--danger); }
+  .pub-chip.cheal{ border-left-color:var(--heal); }
+  .pub-chip.ctrap{ border-left-color:var(--trap); }
+  .pub-chip.cequip{ border-left-color:var(--equip); }
+  .pub-chip.cspecial{ border-left-color:var(--special); }
+  .pub-error{ font-size:.68rem; color:var(--danger); white-space:pre-wrap; }
   .advanced{ flex:0 0 auto; border-top:1px solid var(--line); padding:8px 12px 12px; }
   .advanced summary{ font-size:.75rem; color:var(--text-dim); cursor:pointer; padding:4px 0; }
   .advanced-body{ display:flex; flex-direction:column; gap:8px; margin-top:6px; }
@@ -81,6 +113,7 @@
     html,body{ overflow-y:auto; }
     .builder{ flex-direction:column; overflow:visible; }
     .pane{ flex:0 0 auto; max-height:60vh; }
+    .side-col{ flex:0 0 auto; }
   }
 </style>
 </head>
@@ -117,34 +150,57 @@
     <div class="pane-list" id="poolList"></div>
   </section>
 
-  <section class="pane deck-pane">
-    <div class="pane-head">
-      <div class="pane-title">Your deck</div>
-      <div class="deck-summary mono" id="deckSummary"><span id="deckTotal"></span><span id="deckBreakdown"></span></div>
+  <div class="side-col">
+    <div class="inspector" id="inspector">
+      <div class="inspector-head"><span>Card Info</span></div>
+      <div id="inspectorBody"><div class="inspector-empty">Hover a card to see its details.</div></div>
     </div>
-    <div class="deck-actions">
-      <button class="btn small" id="deckCopy">Copy from other player</button>
-      <button class="btn small" id="deckDefault">Reset to default</button>
-      <button class="btn small" id="deckClearAll" title="Remove every card from this deck">Clear all</button>
-    </div>
-    <div class="pane-list" id="deckList"></div>
-    <details class="advanced">
-      <summary>Advanced: export, import, edit as text</summary>
-      <div class="advanced-body">
-        <textarea id="deckTextarea" class="mono" spellcheck="false" rows="8"></textarea>
-        <div class="deck-actions" style="padding:0;">
-          <button class="btn small" id="deckTextApply">Apply text</button>
-          <span class="deck-text-status" id="deckTextStatus"></span>
-        </div>
-        <div class="deck-actions" style="padding:0;">
-          <button class="btn small" id="deckExport" title="Download both decks as decks.txt">Export file</button>
-          <button class="btn small" id="deckImport" title="Load decks from a text file">Import file</button>
-          <input type="file" id="deckFileInput" accept=".txt,text/plain" hidden>
-        </div>
+
+    <section class="pane deck-pane">
+      <div class="pane-head">
+        <div class="pane-title">Your deck</div>
+        <div class="deck-summary mono" id="deckSummary"><span id="deckTotal"></span><span id="deckBreakdown"></span></div>
       </div>
-    </details>
-  </section>
+      <div class="deck-actions">
+        <button class="btn small" id="deckCopy">Copy from other player</button>
+        <button class="btn small" id="deckDefault">Reset to default</button>
+        <button class="btn small" id="deckClearAll" title="Remove every card from this deck">Clear all</button>
+      </div>
+      <div class="deck-actions" style="padding-top:6px;">
+        <button class="btn small" id="publicBrowse" title="Browse the decks in the project's decks/ folder">Browse public decks</button>
+        <button class="btn small" id="deckSaveShared" title="Save this deck as a file in the project's decks/ folder" hidden>Save as public deck</button>
+      </div>
+      <div class="shared-status" id="sharedStatus" hidden></div>
+      <div class="pane-list" id="deckList"></div>
+      <details class="advanced">
+        <summary>Advanced: export, import, edit as text</summary>
+        <div class="advanced-body">
+          <textarea id="deckTextarea" class="mono" spellcheck="false" rows="8"></textarea>
+          <div class="deck-actions" style="padding:0;">
+            <button class="btn small" id="deckTextApply">Apply text</button>
+            <span class="deck-text-status" id="deckTextStatus"></span>
+          </div>
+          <div class="deck-actions" style="padding:0;">
+            <button class="btn small" id="deckExport" title="Download both decks as decks.txt">Export file</button>
+            <button class="btn small" id="deckImport" title="Load decks from a text file">Import file</button>
+            <input type="file" id="deckFileInput" accept=".txt,text/plain" hidden>
+          </div>
+        </div>
+      </details>
+    </section>
+  </div>
 </main>
+
+<div class="modal" id="publicModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="publicTitle">
+    <div class="modal-head">
+      <div class="pane-title" id="publicTitle">Public decks</div>
+      <input type="search" id="publicSearch" placeholder="Search by deck or card name..." aria-label="Search public decks">
+      <button class="btn small ghost" id="publicClose" type="button" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-list" id="publicList"></div>
+  </div>
+</div>
 
 <script src="shared.js"></script>
 <script>
@@ -164,6 +220,17 @@
   }
   function visibleKeys(){
     return Object.keys(CARD_DEFS).filter(function(key){ return matchesFilter(CARD_DEFS[key]); });
+  }
+
+  // Hovering (or focusing) a row shows it in the Card Info panel; the last card stays shown after the pointer leaves.
+  function inspectCard(key){
+    var card = CARD_DEFS[key];
+    document.getElementById('inspector').className = 'inspector ' + cardColorClass(card);
+    document.getElementById('inspectorBody').innerHTML = inspectorCardHtml(card);
+  }
+  function bindInspect(row, key){
+    row.addEventListener('mouseenter', function(){ inspectCard(key); });
+    row.addEventListener('focusin', function(){ inspectCard(key); });
   }
 
   function renderPool(){
@@ -194,6 +261,7 @@
         btns[1].disabled = maxed;
         btns[0].addEventListener('click', function(){ recipe[key] = Math.max(0, recipe[key] - 1); renderAll(); });
         btns[1].addEventListener('click', function(){ recipe[key] = Math.min(MAX_COPIES, recipe[key] + 1); renderAll(); });
+        bindInspect(row, key);
         list.appendChild(row);
       });
     });
@@ -237,6 +305,7 @@
         btns[1].addEventListener('click', function(e){ e.stopPropagation(); recipe[key] = Math.min(MAX_COPIES, recipe[key] + 1); renderAll(); });
         row.addEventListener('click', function(){ recipe[key] = Math.max(0, recipe[key] - 1); renderAll(); });
         row.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); recipe[key] = Math.max(0, recipe[key] - 1); renderAll(); } });
+        bindInspect(row, key);
         list.appendChild(row);
       });
     });
@@ -308,6 +377,129 @@
     e.target.value = '';
   });
 
+  // ---------- Public decks (decks/ folder) ----------
+  // Each public deck is decks/<name>.txt, listed in decks/index.json. Browsing works wherever the site is served;
+  // saving needs the local server (node server.js), so the Save button only appears when it responds.
+  var lastSavedName = '';
+  var publicDecks = [];   // [{ file, name, recipe, errors }]
+  var publicSearch = '';
+
+  function showSharedStatus(text, isError){
+    var s = document.getElementById('sharedStatus');
+    s.hidden = !text;
+    s.className = 'shared-status' + (isError ? ' error' : '');
+    s.textContent = text || '';
+  }
+
+  function fetchPublicDecks(){
+    return fetch('decks/index.json', { cache: 'no-store' })
+      .then(function(r){ return r.ok ? r.json() : []; })
+      .then(function(list){
+        return Promise.all(list.map(function(d){
+          return fetch('decks/' + encodeURIComponent(d.file), { cache: 'no-store' })
+            .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+            .then(function(text){ var p = parseDeckText(text); return { file: d.file, name: d.name, recipe: p.recipe, errors: p.errors }; })
+            .catch(function(err){ return { file: d.file, name: d.name, recipe: emptyRecipe(), errors: ['Could not load: ' + err.message] }; });
+        }));
+      });
+  }
+
+  function deckMatchesSearch(d){
+    var q = publicSearch.trim().toLowerCase();
+    if (!q) return true;
+    if (d.name.toLowerCase().indexOf(q) !== -1) return true;
+    return Object.keys(d.recipe).some(function(k){ return d.recipe[k] > 0 && CARD_DEFS[k].name.toLowerCase().indexOf(q) !== -1; });
+  }
+
+  function renderPublicList(message){
+    var list = document.getElementById('publicList');
+    list.innerHTML = '';
+    if (message){ list.appendChild(el('div', 'empty-msg', {})).textContent = message; return; }
+    var shown = publicDecks.filter(deckMatchesSearch);
+    if (!shown.length){
+      list.appendChild(el('div', 'empty-msg', {})).textContent = publicDecks.length ? 'No public decks match your search.' : 'No public decks yet — build one and press "Save as public deck".';
+      return;
+    }
+    shown.forEach(function(d){
+      var total = deckTotal(d.recipe);
+      var row = el('div', 'pub-deck', {});
+      var head = row.appendChild(el('div', 'pub-head', {}));
+      head.appendChild(el('div', 'pub-name', {})).textContent = d.name;
+      head.appendChild(el('div', 'pub-meta mono', {})).textContent = total + ' cards · ' + DECK_GROUPS.map(function(g){
+        return g[0] + ' ' + Object.keys(d.recipe).reduce(function(a, k){ return a + (CARD_DEFS[k].type === g[1] ? d.recipe[k] : 0); }, 0);
+      }).join(' · ');
+      var actions = head.appendChild(el('div', 'pub-actions', {}));
+      [0, 1].forEach(function(side){
+        var b = actions.appendChild(el('button', 'btn small', { type: 'button' }));
+        b.textContent = 'Use for P' + (side + 1);
+        b.disabled = total === 0 || d.errors.length > 0;
+        b.addEventListener('click', function(){ usePublicDeck(d, side); });
+      });
+      if (d.errors.length) row.appendChild(el('div', 'pub-error', {})).textContent = d.file + ':\n' + d.errors.join('\n');
+      var cards = row.appendChild(el('div', 'pub-cards', {}));
+      Object.keys(CARD_DEFS).forEach(function(k){
+        if (!(d.recipe[k] > 0)) return;
+        var card = CARD_DEFS[k];
+        var chip = cards.appendChild(el('span', 'pub-chip ' + cardColorClass(card), { title: card.effect }));
+        chip.textContent = card.icon + ' ' + card.name + ' ×' + d.recipe[k];
+      });
+      list.appendChild(row);
+    });
+  }
+
+  function usePublicDeck(d, side){
+    deckRecipes[side] = JSON.parse(JSON.stringify(d.recipe));
+    deckEditorSide = side;
+    lastSavedName = d.name;
+    closePublicDecks();
+    renderAll();
+    showSharedStatus('Loaded "' + d.name + '" into Player ' + (side + 1) + '.');
+  }
+
+  function openPublicDecks(){
+    document.getElementById('publicModal').hidden = false;
+    document.getElementById('publicSearch').focus();
+    renderPublicList('Loading…');
+    fetchPublicDecks()
+      .then(function(decks){ publicDecks = decks; renderPublicList(); })
+      .catch(function(){ renderPublicList('Could not reach the decks/ folder. Run "node server.js" and open http://localhost:8000/decks.html.'); });
+  }
+  function closePublicDecks(){ document.getElementById('publicModal').hidden = true; }
+  function publicDecksOpen(){ return !document.getElementById('publicModal').hidden; }
+
+  document.getElementById('publicBrowse').addEventListener('click', openPublicDecks);
+  document.getElementById('publicClose').addEventListener('click', closePublicDecks);
+  document.getElementById('publicModal').addEventListener('click', function(e){ if (e.target === e.currentTarget) closePublicDecks(); });
+  document.getElementById('publicSearch').addEventListener('input', function(e){ publicSearch = e.target.value; renderPublicList(); });
+
+  function postDeck(name, overwrite){
+    return fetch('api/decks', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name, text: deckToText(deckRecipes[deckEditorSide], name), overwrite: overwrite })
+    }).then(function(r){ return r.json().then(function(body){ return { status: r.status, body: body }; }); });
+  }
+  document.getElementById('deckSaveShared').addEventListener('click', function(){
+    if (deckTotal(deckRecipes[deckEditorSide]) === 0){ showSharedStatus('This deck is empty — add some cards first.', true); return; }
+    var name = prompt('Name this deck:', lastSavedName);
+    if (name == null || !name.trim()) return;
+    name = name.trim();
+    postDeck(name, false)
+      .then(function(res){
+        if (res.status === 409 && confirm('decks/' + res.body.file + ' already exists. Overwrite it?')) return postDeck(name, true);
+        return res;
+      })
+      .then(function(res){
+        if (!res || res.status === 409) return;
+        if (res.status !== 200){ showSharedStatus(res.body.error || 'Save failed.', true); return; }
+        lastSavedName = name;
+        showSharedStatus('Saved as public deck decks/' + res.body.file + '.');
+      })
+      .catch(function(){ showSharedStatus('Save failed — is node server.js still running?', true); });
+  });
+  fetch('api/status', { cache: 'no-store' })
+    .then(function(r){ if (r.ok) document.getElementById('deckSaveShared').hidden = false; })
+    .catch(function(){});
+
   document.getElementById('deckApply').addEventListener('click', function(){
     if (deckRecipes.some(function(r){ return deckTotal(r) < INITIAL_HAND; })){
       alert('Each deck needs at least ' + INITIAL_HAND + ' cards for the opening hand.');
@@ -318,7 +510,9 @@
   });
 
   document.addEventListener('keydown', function(e){
-    if (e.key === 'Escape') window.location.href = 'index.html';
+    if (e.key !== 'Escape') return;
+    if (publicDecksOpen()) closePublicDecks();
+    else window.location.href = 'index.html';
   });
 
   renderAll();

@@ -152,28 +152,6 @@
     color:var(--text-dim); letter-spacing:.15em; padding-bottom:2px; border-bottom:1px solid var(--line);
   }
 
-  /* card inspector */
-  .inspector{
-    flex:0 0 auto; background:var(--panel); border:1px solid var(--line); border-radius:12px;
-    padding:8px 10px; display:flex; flex-direction:column; gap:5px; font-size:.74rem;
-  }
-  .inspector-head{ display:flex; justify-content:space-between; align-items:center; font-size:.66rem; text-transform:uppercase; letter-spacing:.07em; color:var(--text-dim); }
-  .inspector-empty{ color:var(--text-dim); font-size:.72rem; font-style:italic; }
-  .inspector-title{ display:flex; align-items:center; gap:8px; }
-  .inspector-icon{ font-size:1.4rem; line-height:1; width:1.6rem; text-align:center; }
-  .inspector-name{ font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:.95rem; line-height:1.1; }
-  .inspector-type{ font-size:.62rem; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim); }
-  .inspector.cattack .inspector-type{ color:var(--danger); }
-  .inspector.cheal .inspector-type{ color:var(--heal); }
-  .inspector.ctrap .inspector-type{ color:var(--trap); }
-  .inspector.cequip .inspector-type{ color:var(--equip); }
-  .inspector.cspecial .inspector-type{ color:var(--special); }
-  .inspector-stats{ display:flex; flex-wrap:wrap; gap:4px; }
-  .inspector-stat{ font-size:.66rem; padding:2px 6px; border-radius:999px; background:var(--panel-2); border:1px solid var(--line); }
-  .inspector-effect{ line-height:1.35; }
-  .inspector-live{ border-top:1px dashed var(--line); padding-top:5px; color:var(--text-dim); font-size:.68rem; line-height:1.35; }
-  .inspector-close{ background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:.8rem; padding:0 2px; line-height:1; }
-  .inspector-close:hover{ color:var(--text); }
   .grave-chip{ cursor:pointer; }
 
   /* log */
@@ -330,7 +308,7 @@
 
   var cardUid = 0;
   function makeCard(key){
-    var def = CARD_DEFS[key];
+    var def = CARD_DEFS[key] || TOKEN_DEFS[key];
     var c = { uid: 'c' + (cardUid++) };
     for (var k in def) c[k] = def[k];
     return c;
@@ -398,6 +376,7 @@
       round: 1, phase: 'setup', tick: 0,
       selected: null, attaching: null, inspected: null, winner: null, log: [], graveOpen: [false,false],
       pendingChoice: null, tickQueue: [], tickQueuePos: 0,
+      stack: [], responder: null, resolvingStack: false,
       players: [newPlayer('Player 1', 0), newPlayer('Player 2', 1)]
     };
     s.players.forEach(function(p){ drawCards(p, INITIAL_HAND); });
@@ -488,7 +467,12 @@
   // Processes exactly one queued action from the current tick, then does the end-of-queue
   // bookkeeping (game over / end of round). Remaining actions wait for the next Step click.
   function drainQueue(){
-    if (state.manualPause){ state.manualPause = false; render(); return; }
+    if (state.manualPause){
+      state.manualPause = false;
+      if (state.resolvingStack) resolveStack(); // a choice opened mid-resolution; finish the rest of the stack
+      else render();
+      return;
+    }
     if (state.tickQueuePos < state.tickQueue.length){
       var item = state.tickQueue[state.tickQueuePos++];
       var result = processQueueItem(item);
@@ -499,7 +483,7 @@
   }
 
   function stepOnce(){
-    if (state.phase !== 'simulating' || state.pendingChoice) return;
+    if (state.phase !== 'simulating' || state.pendingChoice || state.responder !== null || state.resolvingStack) return;
     if (state.tickQueue && state.tickQueuePos < state.tickQueue.length){
       drainQueue();
       return;
@@ -853,6 +837,10 @@
       if (condIdx !== -1){
         gainCharges(defSide, condIdx, 1);
         addLog(dp.name + "'s Conduit passes 1 charge to " + dp.units[condIdx].card.name + '.', 'meta');
+      }
+      if (target.equip && target.equip.card.key === 'gravestone'){   // also pays out on a lethal hit
+        dp.grave.push(makeCard('gravetoken'));
+        addLog(dp.name + "'s Gravestone adds a Grave Token to the graveyard.", 'meta');
       }
       if (target.hp <= 0){
         var lwIdx = -1;
@@ -1341,59 +1329,108 @@
   }
 
   // ---------- Player-activated abilities ----------
-  function canActivate(side, idx){
-    if (state.phase !== 'simulating' || state.pendingChoice) return false;
-    var u = state.players[side].units[idx];
+  // Activating an ability only declares it. The opponent then gets a response window: they may declare one of
+  // their own abilities in response (which hands the window back), or pass. A pass resolves everything declared,
+  // newest first. Costs are paid on resolution, so an ability whose source is gone or drained by then fizzles.
+  function isDeclared(uid){ return state.stack.some(function(d){ return d.uid === uid; }); }
+  function mayActivateNow(side){
+    if (state.phase !== 'simulating' || state.pendingChoice || state.resolvingStack) return false;
+    return state.responder === null || state.responder === side;
+  }
+  function unitHasActivation(u){
     return !!(u && u.alive && u.card.activatable && (u.charges || 0) >= (u.card.activateCost || 1));
+  }
+  function trapHasActivation(tr){
+    return !!(tr && (tr.card.manualFire || (tr.card.manualArm && !tr.primed)));
+  }
+  function findTrapSlotByUid(player, uid){
+    for (var i = 0; i < player.traps.length; i++){ if (player.traps[i] && player.traps[i].card.uid === uid) return i; }
+    return -1;
+  }
+
+  function canActivate(side, idx){
+    var u = state.players[side].units[idx];
+    return mayActivateNow(side) && unitHasActivation(u) && !isDeclared(u.card.uid);
   }
 
   function canActivateTrap(side, idx){
-    if (state.phase !== 'simulating' || state.pendingChoice) return false;
     var tr = state.players[side].traps[idx];
-    if (!tr) return false;
-    return !!(tr.card.manualFire || (tr.card.manualArm && !tr.primed));
+    return mayActivateNow(side) && trapHasActivation(tr) && !isDeclared(tr.card.uid);
   }
 
-  function activateTrap(side, idx){
-    if (!canActivateTrap(side, idx)) return;
-    var tr = state.players[side].traps[idx];
-    if (tr.card.manualArm){
-      tr.primed = true;
-      addLog('t' + state.tick + ': ' + state.players[side].name + ' activates ' + tr.card.name + ' — it will catch the next enemy attack.', 'trap');
-      render();
-      return;
-    }
-    // manualFire: resolves immediately
-    addLog('t' + state.tick + ': ' + state.players[side].name + ' activates ' + tr.card.name + '.', 'trap');
-    state.manualPause = true; // if this opens a choice, resuming should not consume a queued Step
-    var resolveNow = function(){
-      var result;
-      switch (tr.card.key){
-        case 'liquidator': result = resolveLiquidator(side, idx); break;
-        case 'cannibalize': result = resolveCannibalize(side, idx); break;
-        case 'standoff': result = resolveStandoff(side, 1 - side, idx); break;
-        case 'donation': resolveDonation(side, 1 - side, idx); break;
-        case 'repossess': resolveRepossess(side, 1 - side, idx); break;
-      }
-      return result;
-    };
-    var result = chargeExtortionChoice(side, resolveNow);
-    if (result !== 'PAUSED'){ state.manualPause = false; render(); }
+  function declareAbility(side, zone, idx){
+    var p = state.players[side];
+    var card = (zone === 'unit' ? p.units[idx] : p.traps[idx]).card;
+    var inResponse = state.stack.length > 0;
+    state.stack.push({ side: side, zone: zone, uid: card.uid, name: card.name });
+    state.responder = 1 - side;
+    addLog('t' + state.tick + ': ' + p.name + ' declares ' + card.name + (inResponse ? ' in response' : '') +
+      ' — ' + state.players[1 - side].name + ' may respond or pass.', 'meta');
+    render();
   }
 
   function activateUnit(side, idx){
-    if (!canActivate(side, idx)) return;
-    var u = state.players[side].units[idx];
-    var result;
-    state.manualPause = true; // if this opens a choice, resuming should not consume a queued Step
-    switch (u.card.key){
-      case 'loadedgun': result = doLoadedGun(side, idx, u, state.tick); break;
-      case 'undertaker': result = doUndertaker(side, idx, u, state.tick); break;
-      case 'martyr': result = doMartyr(side, idx, u, state.tick); break;
-      case 'gravedigger': result = doGravedigger(side, idx, u, state.tick); break;
+    if (canActivate(side, idx)) declareAbility(side, 'unit', idx);
+  }
+
+  function activateTrap(side, idx){
+    if (canActivateTrap(side, idx)) declareAbility(side, 'trap', idx);
+  }
+
+  function passResponse(){
+    if (state.responder === null) return;
+    addLog(state.players[state.responder].name + ' passes.', 'meta');
+    state.responder = null;
+    resolveStack();
+  }
+
+  // Resolves declarations newest-first. If one opens a choice, that choice's handler ends in drainQueue(),
+  // which (because manualPause is set) calls back in here to finish the rest instead of consuming a Step.
+  function resolveStack(){
+    state.resolvingStack = true;
+    while (state.stack.length && state.phase === 'simulating'){
+      var result = resolveDeclared(state.stack.pop());
+      if (result === 'PAUSED'){ state.manualPause = true; render(); return; }
     }
-    if (result !== 'PAUSED') state.manualPause = false;
+    state.stack = [];
+    state.resolvingStack = false;
     render();
+  }
+
+  function resolveDeclared(d){
+    var p = state.players[d.side];
+    var t = state.tick;
+    var fizzle = function(){ addLog('t' + t + ': ' + p.name + "'s " + d.name + ' fizzles — it can no longer activate.', 'meta'); };
+    if (d.zone === 'unit'){
+      var idx = findUnitSlotByUid(p, d.uid);
+      var u = idx === -1 ? null : p.units[idx];
+      if (!unitHasActivation(u)){ fizzle(); return; }
+      switch (u.card.key){
+        case 'loadedgun': return doLoadedGun(d.side, idx, u, t);
+        case 'undertaker': return doUndertaker(d.side, idx, u, t);
+        case 'martyr': return doMartyr(d.side, idx, u, t);
+        case 'gravedigger': return doGravedigger(d.side, idx, u, t);
+      }
+      return;
+    }
+    var tIdx = findTrapSlotByUid(p, d.uid);
+    var tr = tIdx === -1 ? null : p.traps[tIdx];
+    if (!trapHasActivation(tr)){ fizzle(); return; }
+    if (tr.card.manualArm){
+      tr.primed = true;
+      addLog('t' + t + ': ' + p.name + "'s " + tr.card.name + ' activates — it will catch the next enemy attack.', 'trap');
+      return;
+    }
+    addLog('t' + t + ': ' + p.name + "'s " + tr.card.name + ' activates.', 'trap');
+    return chargeExtortionChoice(d.side, function(){
+      switch (tr.card.key){
+        case 'liquidator': return resolveLiquidator(d.side, tIdx);
+        case 'cannibalize': return resolveCannibalize(d.side, tIdx);
+        case 'standoff': return resolveStandoff(d.side, 1 - d.side, tIdx);
+        case 'donation': resolveDonation(d.side, 1 - d.side, tIdx); return;
+        case 'repossess': resolveRepossess(d.side, 1 - d.side, tIdx); return;
+      }
+    });
   }
 
   // ---------- Dispatcher ----------
@@ -1630,16 +1667,6 @@
     return null;
   }
 
-  function cardTypeLabel(card){
-    if (card.type === 'trap') return 'Trap · one use';
-    if (card.type === 'continuous') return 'Continuous · field';
-    if (card.type === 'equip') return 'Equip';
-    if (card.unitType === 'attacker') return 'Unit · attacker';
-    if (card.unitType === 'healer') return 'Unit · healer';
-    if (card.unitType === 'passive') return 'Unit · passive';
-    return 'Unit · special';
-  }
-
   function renderInspector(){
     var box = document.getElementById('inspector');
     var body = document.getElementById('inspectorBody');
@@ -1654,18 +1681,7 @@
     }
     var card = ins.card;
     box.className = 'inspector ' + cardColorClass(card);
-    var stats = [];
-    if (card.power != null) stats.push('PWR ' + card.power);
-    if (card.heal != null) stats.push('HEAL ' + card.heal);
-    if (card.hp != null) stats.push('HP ' + card.hp);
-    if (card.startCharges != null) stats.push('Starts with ' + card.startCharges + ' charge' + (card.startCharges === 1 ? '' : 's'));
-    else if (card.usesCharges) stats.push('Uses charges');
-    if (isFinite(card.cooldown) && card.type === 'unit') stats.push('Every ' + card.cooldown + ' ticks');
-    var html =
-      '<div class="inspector-title"><div class="inspector-icon">' + card.icon + '</div>' +
-      '<div><div class="inspector-name">' + card.name + '</div><div class="inspector-type">' + cardTypeLabel(card) + '</div></div></div>';
-    if (stats.length) html += '<div class="inspector-stats">' + stats.map(function(t){ return '<span class="inspector-stat mono">' + t + '</span>'; }).join('') + '</div>';
-    html += '<div class="inspector-effect">' + card.effect + '</div>';
+    var html = inspectorCardHtml(card);
     var live = inspectedLiveInfo();
     if (live) html += '<div class="inspector-live">' + live.join(' · ') + '</div>';
     body.innerHTML = html;
@@ -1736,6 +1752,7 @@
       ? (state.tick % card.cooldown) / card.cooldown : 0;
     var chargeLine = (card.usesCharges || (u.charges || 0) > 0) ? ('<div class="stat mono">⚡' + (u.charges || 0) + '</div>') : '';
     var activatable = canActivate(side, idx);
+    if (isDeclared(card.uid)) lines[0] = 'DECLARED';
     if (activatable) lines[0] = '<button class="activate-btn" type="button" title="Spend ' + (card.activateCost || 1) + ' charge(s) now">' + (card.key === 'undertaker' ? 'Recall' : 'Fire') + '</button>';
     var equipNote = '';
     if (u.equip && u.equip.card.key === 'conduit'){
@@ -1792,6 +1809,7 @@
       { tabindex:'0', role:'button', title: card.name + ' — ' + card.effect + (interactive ? ' (double-click to return to hand)' : '') });
     var statLine = zone === 'continuous' ? ('⚡' + (inst.charges || 0) + '/3')
       : card.manualArm ? (inst.primed ? 'ACTIVE' : 'DORMANT') : card.manualFire ? 'READY' : 'ARMED';
+    if (zone === 'trap' && isDeclared(card.uid)) statLine = 'DECLARED';
     if (zone === 'trap' && canActivateTrap(side, idx)) statLine = '<button class="activate-btn" type="button" title="Activate now: catches the next enemy attack">Activate</button>';
     c.innerHTML =
       prioBadge(side, zone, idx) +
@@ -1906,9 +1924,15 @@
 
     var mainBtn = document.getElementById('mainActionBtn');
     mainBtn.disabled = false;
+    mainBtn.title = '';
     if (state.phase === 'setup'){ mainBtn.textContent = 'Reveal & Simulate'; mainBtn.onclick = startSimulation; }
     else if (state.phase === 'simulating'){
-      if (!state.pendingChoice){ mainBtn.textContent = 'Step ▶'; mainBtn.onclick = stepOnce; }
+      if (state.responder !== null && !state.pendingChoice){
+        mainBtn.textContent = state.players[state.responder].name + ': Pass ▶';
+        mainBtn.title = 'Let the declared ability resolve, or activate one of your own abilities first to respond';
+        mainBtn.onclick = passResponse;
+      }
+      else if (!state.pendingChoice){ mainBtn.textContent = 'Step ▶'; mainBtn.onclick = stepOnce; }
       else { mainBtn.textContent = 'Awaiting choice…'; mainBtn.disabled = true; mainBtn.onclick = null; }
     }
     else if (state.phase === 'roundEnd'){ mainBtn.textContent = 'Draw & Continue'; mainBtn.onclick = continueToNextRound; }

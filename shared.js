@@ -25,7 +25,7 @@ var CARD_DEFS = {
     effect:'1 charge. Activate it during the battle: give a target unit 2 charges, then Martyr destroys itself.' },
   loadedgun:    { key:'loadedgun',    type:'unit', unitType:'special', name:'Loaded Gun',   icon:'☍', hp:10, cooldown:Infinity, startCharges:3, usesCharges:true, activatable:true,
     effect:'3 charges. Fire it yourself at any point during the battle: spends 1 charge to deal 2 damage. Destroys itself at 0 charges.' },
-  bulwark:      { key:'bulwark',      type:'unit', unitType:'passive', name:'Bulwark',      icon:'⛊', hp:14, cooldown:Infinity,
+  bulwark:      { key:'bulwark',      type:'unit', unitType:'passive', name:'Bulwark',      icon:'⛊', hp:16, cooldown:Infinity,
     effect:'When the battle begins, if Bulwark is the only unit on your side, it doubles its HP and taunts — every enemy attack must target it while it lives.' },
   mimic:        { key:'mimic',        type:'unit', unitType:'special', name:'Mimic',        icon:'❖', hp:12, cooldown:20, startCharges:1, usesCharges:true,
     effect:"1 charge. Spend it to copy and immediately use another of your unit's action." },
@@ -59,9 +59,17 @@ var CARD_DEFS = {
     effect:'Equip. Pick one of your units as its target when you equip it. Whenever the equipped unit is attacked, the target gains 1 charge.' },
   inheritance:     { key:'inheritance',     type:'equip', name:'Inheritance',         icon:'⚱',
     effect:'Equip. When the equipped unit dies, moves itself (and its stored charges) to another of your units.' },
+  gravestone:      { key:'gravestone',      type:'equip', name:'Gravestone',          icon:'⚰',
+    effect:"Equip. Whenever the equipped unit is attacked, adds a Grave Token to your graveyard." },
 
   blackbox: { key:'blackbox', type:'continuous', name:'Black Box', icon:'▣',
     effect:'Continuous. Gains a charge whenever one of your cards dies. At 3 charges, replays your last attack or heal.' }
+};
+
+// Tokens are created during play, never drawn — kept out of CARD_DEFS so they can't be put in a deck.
+var TOKEN_DEFS = {
+  gravetoken: { key:'gravetoken', type:'token', name:'Grave Token', icon:'◌',
+    effect:'Token. Does nothing on its own, but counts as a card in the graveyard.' }
 };
 
 var DECK_RECIPE = [
@@ -72,7 +80,7 @@ var DECK_RECIPE = [
   ['donation',1], ['liquidator',1], ['mutualdestruction',1], ['standoff',1], ['repossess',1],
   ['lastwill',1], ['hijack',1], ['cannibalize',1],
   ['deathless',1], ['veteranstandard',1], ['battery',1], ['deadmanswitch',1], ['inheritance',1],
-  ['conduit',1],
+  ['conduit',1], ['gravestone',1],
   ['blackbox',1]
 ];
 var MAX_COPIES = 12;
@@ -117,6 +125,34 @@ function statLines(card){
   return ['SPECIAL', 'HP ' + card.hp];
 }
 
+function cardTypeLabel(card){
+  if (card.type === 'trap') return 'Trap · one use';
+  if (card.type === 'continuous') return 'Continuous · field';
+  if (card.type === 'equip') return 'Equip';
+  if (card.type === 'token') return 'Token';
+  if (card.unitType === 'attacker') return 'Unit · attacker';
+  if (card.unitType === 'healer') return 'Unit · healer';
+  if (card.unitType === 'passive') return 'Unit · passive';
+  return 'Unit · special';
+}
+
+// Static card details for the "Card Info" inspector panel (title, stat chips, effect text).
+function inspectorCardHtml(card){
+  var stats = [];
+  if (card.power != null) stats.push('PWR ' + card.power);
+  if (card.heal != null) stats.push('HEAL ' + card.heal);
+  if (card.hp != null) stats.push('HP ' + card.hp);
+  if (card.startCharges != null) stats.push('Starts with ' + card.startCharges + ' charge' + (card.startCharges === 1 ? '' : 's'));
+  else if (card.usesCharges) stats.push('Uses charges');
+  if (isFinite(card.cooldown) && card.type === 'unit') stats.push('Every ' + card.cooldown + ' ticks');
+  var html =
+    '<div class="inspector-title"><div class="inspector-icon">' + card.icon + '</div>' +
+    '<div><div class="inspector-name">' + card.name + '</div><div class="inspector-type">' + cardTypeLabel(card) + '</div></div></div>';
+  if (stats.length) html += '<div class="inspector-stats">' + stats.map(function(t){ return '<span class="inspector-stat mono">' + t + '</span>'; }).join('') + '</div>';
+  html += '<div class="inspector-effect">' + card.effect + '</div>';
+  return html;
+}
+
 // Decks are exchanged as a plain text file:
 //   [Player 1]
 //   Striker x6
@@ -136,11 +172,12 @@ function decksToText(recipes){
 }
 
 // Returns { recipes, errors } — unknown names are reported, not silently dropped.
-function parseDecksText(text){
+// defaultSide: which player cards before any [Player N] header belong to (omit to treat them as an error).
+function parseDecksText(text, defaultSide){
   var byName = {};
   Object.keys(CARD_DEFS).forEach(function(k){ byName[k.toLowerCase()] = k; byName[CARD_DEFS[k].name.toLowerCase()] = k; });
   var recipes = [emptyRecipe(), emptyRecipe()];
-  var errors = [], side = -1;
+  var errors = [], side = defaultSide == null ? -1 : defaultSide;
   text.split(/\r?\n/).forEach(function(raw, n){
     var line = raw.trim();
     if (!line || line.charAt(0) === '#') return;
@@ -154,6 +191,22 @@ function parseDecksText(text){
     recipes[side][key] = Math.max(0, Math.min(MAX_COPIES, parseInt(cm[2], 10)));
   });
   return { recipes: recipes, errors: errors };
+}
+
+// A single named deck, as saved in decks/<name>.txt:
+//   # Deck: Aggro Strikers
+//   Striker x6
+//   ...
+function deckToText(recipe, name){
+  var lines = ['# Deck: ' + name, '# One card per line: <card name> x<copies>', ''];
+  Object.keys(CARD_DEFS).forEach(function(k){ if (recipe[k] > 0) lines.push(CARD_DEFS[k].name + ' x' + recipe[k]); });
+  return lines.join('\n') + '\n';
+}
+
+// Returns { recipe, errors }. A two-player decks file is accepted too; its Player 1 deck is used.
+function parseDeckText(text){
+  var parsed = parseDecksText(text, 0);
+  return { recipe: parsed.recipes[0], errors: parsed.errors };
 }
 
 // localStorage persistence, shared between the game (reads) and the deck builder (reads + writes).
