@@ -1,0 +1,60 @@
+# Structure Siege decks
+# One card per line: <card name> x<copies>
+
+[Player 1]
+Striker x1
+Medic x1
+Mirror Wall x1
+Gravedigger x1
+Undertaker x1
+Predator x1
+Extortionist x1
+Bodyguard x1
+Scavenger x1
+Parasite x1
+Martyr x1
+Loaded Gun x1
+Mimic x1
+Donation x1
+Liquidator x1
+Mutual Destruction x1
+Standoff x1
+Repossess x1
+Last Will x1
+Hijack x1
+Cannibalize x1
+Deathless x1
+Veteran's Standard x1
+Battery x1
+Dead Man's Switch x1
+Inheritance x1
+Black Box x1
+
+[Player 2]
+Striker x1
+Medic x1
+Mirror Wall x1
+Gravedigger x1
+Undertaker x1
+Predator x1
+Extortionist x1
+Bodyguard x1
+Scavenger x1
+Parasite x1
+Martyr x1
+Loaded Gun x1
+Mimic x1
+Donation x1
+Liquidator x1
+Mutual Destruction x1
+Standoff x1
+Repossess x1
+Last Will x1
+Hijack x1
+Cannibalize x1
+Deathless x1
+Veteran's Standard x1
+Battery x1
+Dead Man's Switch x1
+Inheritance x1
+Black Box x1
