@@ -6,83 +6,15 @@
 <title>fd6</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="shared.css">
 <style>
-  :root{
-    --bg:#eef1f5; --panel:#ffffff; --panel-2:#f5f7fa; --line:#d7dee7;
-    --text:#141a22; --text-dim:#5b6b80;
-    --p1:#0e8f88; --p1-bg:#e3f7f5;
-    --p2:#c1690a; --p2-bg:#fdf0e2;
-    --danger:#c53c42; --heal:#2f9e52; --trap:#7c4fc4;
-    --equip:#3f6fb0; --special:#8a6d3b;
-    --shadow:0 1px 2px rgba(20,26,34,.07);
-    color-scheme: light dark;
-  }
-  @media (prefers-color-scheme: dark){
-    :root:not([data-theme="light"]){
-      --bg:#0b0f14; --panel:#121821; --panel-2:#1a2230; --line:#2a3446;
-      --text:#e8edf4; --text-dim:#8fa0b8;
-      --p1:#4fd1c5; --p1-bg:#12302e;
-      --p2:#f0a35a; --p2-bg:#3a2716;
-      --danger:#ff7373; --heal:#7ee08a; --trap:#c79bfa;
-      --equip:#7fb0ff; --special:#e0b989;
-      --shadow:0 1px 3px rgba(0,0,0,.45);
-    }
-  }
-  :root[data-theme="dark"]{
-    --bg:#0b0f14; --panel:#121821; --panel-2:#1a2230; --line:#2a3446;
-    --text:#e8edf4; --text-dim:#8fa0b8;
-    --p1:#4fd1c5; --p1-bg:#12302e;
-    --p2:#f0a35a; --p2-bg:#3a2716;
-    --danger:#ff7373; --heal:#7ee08a; --trap:#c79bfa;
-    --equip:#7fb0ff; --special:#e0b989;
-    --shadow:0 1px 3px rgba(0,0,0,.45);
-  }
-
-  *{box-sizing:border-box;}
-  html,body{ margin:0; padding:0; height:100%; overflow:hidden; }
-  body{
-    background:var(--bg); color:var(--text);
-    font-family:'IBM Plex Sans', system-ui, sans-serif;
-    display:flex; flex-direction:column;
-  }
-  .mono{ font-family:'IBM Plex Mono', ui-monospace, monospace; }
-  .display{ font-family:'Chakra Petch', system-ui, sans-serif; }
-
-  button{ font-family:inherit; }
-  button:focus-visible, .card:focus-visible, .slot:focus-visible, summary:focus-visible{
-    outline:2px solid var(--p1); outline-offset:2px;
-  }
+  html,body{ overflow:hidden; }
 
   /* ---------- Topbar ---------- */
-  .topbar{
-    flex:0 0 auto;
-    background:var(--panel); border-bottom:1px solid var(--line);
-    padding:6px 14px; box-shadow:var(--shadow);
-  }
-  .topbar-inner{
-    max-width:1300px; margin:0 auto; display:flex; align-items:center;
-    gap:10px; flex-wrap:wrap;
-  }
-  .brand{ font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:.95rem; letter-spacing:.02em; white-space:nowrap; }
-  .brand small{ display:none; }
   .status{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:.72rem; color:var(--text-dim); }
   .status b{ color:var(--text); font-weight:600; }
-  .pill{
-    border:1px solid var(--line); border-radius:999px; padding:2px 9px;
-    background:var(--panel-2); white-space:nowrap;
-  }
   .progress-wrap{ width:100px; height:5px; border-radius:999px; background:var(--panel-2); border:1px solid var(--line); overflow:hidden; }
   .progress-fill{ height:100%; background:linear-gradient(90deg,var(--p1),var(--p2)); width:0%; transition:width .12s linear; }
-  .spacer{ flex:1 1 auto; }
-  .btn{
-    font-weight:600; font-size:.78rem; padding:6px 13px; border-radius:8px;
-    border:1px solid var(--line); background:var(--panel-2); color:var(--text); cursor:pointer;
-  }
-  .btn:hover:not(:disabled){ border-color:var(--p1); }
-  .btn:disabled{ opacity:.5; cursor:default; }
-  .btn.primary{ background:var(--text); color:var(--bg); border-color:var(--text); }
-  .btn.ghost{ background:transparent; }
-  .btn.small{ padding:4px 9px; font-size:.68rem; }
 
   /* ---------- Layout ---------- */
   .battlefield{
@@ -273,35 +205,6 @@
   .overlay-card h2{ font-family:'Chakra Petch',sans-serif; margin:0 0 6px; font-size:1.4rem; }
   .overlay-card p{ color:var(--text-dim); margin:0 0 16px; font-size:.85rem; }
 
-  /* deck editor */
-  .overlay-card.deck-editor{ text-align:left; max-width:640px; width:100%; max-height:calc(100% - 32px); display:flex; flex-direction:column; gap:10px; padding:18px 20px; }
-  .deck-head{ display:flex; align-items:center; gap:12px; }
-  .deck-head h2{ margin:0; font-size:1.15rem; flex:1 1 auto; }
-  .deck-tabs{ display:flex; gap:4px; }
-  .deck-tab.active{ background:var(--text); color:var(--bg); border-color:var(--text); }
-  .deck-note{ margin:0; font-size:.78rem; }
-  .deck-summary{ display:flex; gap:14px; flex-wrap:wrap; font-size:.72rem; color:var(--text-dim); }
-  .deck-summary span:first-child{ color:var(--text); font-weight:600; }
-  .deck-list{ flex:1 1 auto; min-height:0; overflow-y:auto; border:1px solid var(--line); border-radius:10px; }
-  .deck-group{ font-size:.6rem; text-transform:uppercase; letter-spacing:.07em; color:var(--text-dim); padding:8px 10px 3px; background:var(--panel-2); position:sticky; top:0; }
-  .deck-row{ display:flex; align-items:center; gap:8px; padding:5px 10px; border-top:1px solid var(--line); }
-  .deck-row .icon{ width:22px; text-align:center; font-size:1rem; flex:0 0 auto; }
-  .deck-row .info{ flex:1 1 auto; min-width:0; }
-  .deck-row .name{ font-weight:600; font-size:.8rem; }
-  .deck-row .name small{ font-weight:500; color:var(--text-dim); margin-left:6px; font-size:.68rem; }
-  .deck-row .fx{ font-size:.7rem; color:var(--text-dim); }
-  .deck-row .stepper{ display:flex; align-items:center; gap:2px; flex:0 0 auto; }
-  .deck-row .stepper button{ width:24px; height:24px; padding:0; border-radius:6px; font-size:.9rem; line-height:1; }
-  .deck-row .stepper b{ width:26px; text-align:center; font-size:.85rem; }
-  .deck-row.zero{ opacity:.55; }
-  .deck-actions{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
-  .deck-text summary{ font-size:.75rem; color:var(--text-dim); cursor:pointer; }
-  .deck-text textarea{ width:100%; margin:6px 0; font-size:.72rem; background:var(--panel-2); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px; resize:vertical; }
-  .deck-text-status{ font-size:.72rem; color:var(--text-dim); white-space:pre-wrap; }
-  .deck-text-status.error{ color:var(--danger); }
-
-  [hidden]{ display:none !important; }
-
   @media (max-width:760px){
     html,body{ overflow-y:auto; }
     .battlefield{ flex-direction:column; overflow-y:auto; }
@@ -325,7 +228,7 @@
     </div>
     <div class="spacer"></div>
     <button class="btn primary" id="mainActionBtn">Reveal &amp; Simulate</button>
-    <button class="btn ghost small" id="decksBtn">Decks</button>
+    <a class="btn ghost small" id="decksBtn" href="decks.html">Decks</a>
     <button class="btn ghost small" id="resetBtn">Reset</button>
   </div>
 </header>
@@ -406,39 +309,6 @@
   </div>
 </div>
 
-<div class="overlay" id="deckOverlay" hidden>
-  <div class="overlay-card deck-editor">
-    <div class="deck-head">
-      <h2>Deck Editor</h2>
-      <div class="deck-tabs" role="tablist">
-        <button class="btn small deck-tab" id="deckTab0" role="tab">Player 1</button>
-        <button class="btn small deck-tab" id="deckTab1" role="tab">Player 2</button>
-      </div>
-      <button class="btn ghost small" id="deckClose" title="Close">✕</button>
-    </div>
-    <p class="deck-note">Set how many copies of each card go in each deck. Export saves both decks to a text file you can keep alongside the game; Import loads one back. Decks apply when you start a new game.</p>
-    <div class="deck-summary mono"><span id="deckTotal"></span><span id="deckBreakdown"></span></div>
-    <div class="deck-list" id="deckList"></div>
-    <details class="deck-text">
-      <summary>Edit as text</summary>
-      <textarea id="deckTextarea" class="mono" spellcheck="false" rows="10"></textarea>
-      <div class="deck-actions">
-        <button class="btn small" id="deckTextApply">Apply text</button>
-        <span class="deck-text-status" id="deckTextStatus"></span>
-      </div>
-    </details>
-    <div class="deck-actions">
-      <button class="btn small" id="deckExport" title="Download both decks as decks.txt">Export file</button>
-      <button class="btn small" id="deckImport" title="Load decks from a text file">Import file</button>
-      <input type="file" id="deckFileInput" accept=".txt,text/plain" hidden>
-      <button class="btn small" id="deckCopy">Copy from other player</button>
-      <button class="btn small" id="deckDefault">Reset to default</button>
-      <span class="spacer"></span>
-      <button class="btn primary" id="deckApply">Apply &amp; New Game</button>
-    </div>
-  </div>
-</div>
-
 <div class="overlay" id="choiceOverlay" hidden>
   <div class="overlay-card">
     <h2 id="choiceTitle">Choice</h2>
@@ -447,129 +317,16 @@
   </div>
 </div>
 
+<script src="shared.js"></script>
 <script>
 (function(){
   "use strict";
 
-  var CARD_DEFS = {
-    attacker: { key:'attacker', type:'unit', unitType:'attacker', name:'Striker', icon:'⚔', power:10, hp:20, cooldown:20,
-      effect:'Every 20 ticks, hits the nearest enemy unit, or a structure if none remain, for 10.' },
-    healer:   { key:'healer',   type:'unit', unitType:'healer',   name:'Medic',   icon:'✚', heal:10,  hp:15, cooldown:20,
-      effect:'Every 20 ticks, heals whichever own structure or unit is most wounded (by %) for 10.' },
-    mirror:   { key:'mirror',   type:'trap', manualArm:true,      name:'Mirror Wall', icon:'◈',
-      effect:'Dormant until you activate it during the battle. Once active, negates the next enemy attack on your side and destroys the unit that made it.' },
-
-    gravedigger:  { key:'gravedigger',  type:'unit', unitType:'special', name:'Gravedigger',  icon:'Ω', hp:16, cooldown:20, startCharges:1, usesCharges:true,
-      effect:'1 charge. When spent, fires once for every card in your graveyard, 4 damage each.' },
-    undertaker:   { key:'undertaker',   type:'unit', unitType:'special', name:'Undertaker',   icon:'⛧', hp:14, cooldown:Infinity, usesCharges:true, activatable:true, activateCost:2,
-      effect:'Gains 1 charge whenever one of your units dies. Activate whenever you like: spend 2 charges to return a unit card from your graveyard to hand.' },
-    predator:     { key:'predator',     type:'unit', unitType:'attacker', name:'Predator',    icon:'♦', power:16, hp:18, cooldown:20,
-      effect:'Powerful attacker (16 power). When it dies, its death throes hit every other unit on your side for 5.' },
-    extortionist: { key:'extortionist', type:'unit', unitType:'passive', name:'Extortionist', icon:'¤', hp:14, cooldown:Infinity,
-      effect:'Whenever the opponent activates a trap, continuous, or special ability, choose one of your cards to gain 1 charge.' },
-    bodyguard:    { key:'bodyguard',    type:'unit', unitType:'passive', name:'Bodyguard',    icon:'⛨', hp:22, cooldown:Infinity,
-      effect:'May redirect an attack aimed at another of your units or structures onto itself instead.' },
-    scavenger:    { key:'scavenger',    type:'unit', unitType:'attacker', name:'Scavenger',   icon:'↻', power:5, hp:15, cooldown:20,
-      effect:'Every 20 ticks, attacks for 5. Whenever any unit dies (either side), may take its unclaimed equip.' },
-    parasite:     { key:'parasite',     type:'unit', unitType:'special', name:'Parasite',     icon:'☣', hp:8,  cooldown:20, usesCharges:true,
-      effect:'Choose one of your other units as its host when placed. Mirrors every charge the host gains from then on.' },
-    martyr:       { key:'martyr',       type:'unit', unitType:'special', name:'Martyr',      icon:'✟', hp:12, cooldown:Infinity, startCharges:1, usesCharges:true, activatable:true,
-      effect:'1 charge. Activate it during the battle: give a target unit 2 charges, then Martyr destroys itself.' },
-    loadedgun:    { key:'loadedgun',    type:'unit', unitType:'special', name:'Loaded Gun',   icon:'☍', hp:10, cooldown:Infinity, startCharges:3, usesCharges:true, activatable:true,
-      effect:'3 charges. Fire it yourself at any point during the battle: spends 1 charge to deal 2 damage. Destroys itself at 0 charges.' },
-    mimic:        { key:'mimic',        type:'unit', unitType:'special', name:'Mimic',        icon:'❖', hp:12, cooldown:20, startCharges:1, usesCharges:true,
-      effect:"1 charge. Spend it to copy and immediately use another of your unit's action." },
-
-    donation:          { key:'donation',          type:'trap', manualFire:true, name:'Donation',    icon:'☞',
-      effect:"Activate it during the battle: gives your weakest unit to the opponent's board." },
-    liquidator:        { key:'liquidator',        type:'trap', manualFire:true, name:'Liquidator', icon:'⚗',
-      effect:"Activate it during the battle: choose one of your units to sacrifice, then another to receive 1 charge for every 5 HP it had." },
-    mutualdestruction: { key:'mutualdestruction', type:'trap', name:'Mutual Destruction', icon:'⇄',
-      effect:"The first time you're attacked, you and the opponent each pick a unit to swap control of, then both attack." },
-    standoff:          { key:'standoff',          type:'trap', manualFire:true, name:'Standoff',    icon:'⚖',
-      effect:"Activate it during the battle: both sides bid charges from their units; the higher bid draws 2 cards, both pay." },
-    repossess:         { key:'repossess',         type:'trap', manualFire:true, name:'Repossess',          icon:'⇦',
-      effect:"Activate it during the battle: reclaims a unit you originally owned from the opponent's board." },
-    lastwill:          { key:'lastwill',          type:'trap', name:"Last Will",          icon:'☠',
-      effect:'When one of your units would die, choose: save it at 1 HP, or let it die and draw 2 cards.' },
-    hijack:            { key:'hijack',            type:'trap', name:'Hijack',             icon:'⚡',
-      effect:"When the opponent activates a charge ability, spend 1 of your charges to redirect it onto their own unit." },
-    cannibalize:       { key:'cannibalize',       type:'trap', manualFire:true, name:'Cannibalize', icon:'⌇',
-      effect:"Activate it during the battle: choose one of your units to destroy, then another to receive all of its HP." },
-
-    deathless:       { key:'deathless',       type:'equip', name:'Deathless',           icon:'♞',
-      effect:'Equip. Destroys itself instead of letting the equipped unit die, once.' },
-    veteranstandard: { key:'veteranstandard', type:'equip', name:"Veteran's Standard",  icon:'⚑',
-      effect:"Equip. Equipped unit's attacks gain +1 power for every unit you've summoned this game." },
-    battery:         { key:'battery',         type:'equip', name:'Battery',             icon:'⎔',
-      effect:"Equip. Stores up to 3 of the equipped unit's charges; on death, dumps them into another unit." },
-    deadmanswitch:   { key:'deadmanswitch',   type:'equip', name:"Dead Man's Switch",   icon:'☢',
-      effect:'Equip. When the equipped unit dies, it immediately acts once more for free.' },
-    inheritance:     { key:'inheritance',     type:'equip', name:'Inheritance',         icon:'⚱',
-      effect:'Equip. When the equipped unit dies, moves itself (and its stored charges) to another of your units.' },
-
-    blackbox: { key:'blackbox', type:'continuous', name:'Black Box', icon:'▣',
-      effect:'Continuous. Gains a charge whenever one of your cards dies. At 3 charges, replays your last attack or heal.' }
-  };
-  var DECK_RECIPE = [
-    ['attacker',1], ['healer',1], ['mirror',1],
-    ['gravedigger',1], ['undertaker',1], ['predator',1], ['extortionist',1], ['bodyguard',1],
-    ['scavenger',1], ['parasite',1], ['martyr',1], ['loadedgun',1], ['mimic',1],
-    ['donation',1], ['liquidator',1], ['mutualdestruction',1], ['standoff',1], ['repossess',1],
-    ['lastwill',1], ['hijack',1], ['cannibalize',1],
-    ['deathless',1], ['veteranstandard',1], ['battery',1], ['deadmanswitch',1], ['inheritance',1],
-    ['blackbox',1]
-  ];
-  var MAX_COPIES = 12;
-
-  function defaultRecipe(){
-    var r = {};
-    Object.keys(CARD_DEFS).forEach(function(k){ r[k] = 0; });
-    DECK_RECIPE.forEach(function(pair){ r[pair[0]] = pair[1]; });
-    return r;
-  }
-  // Decks are exchanged as a plain text file:
-  //   [Player 1]
-  //   Striker x6
-  //   Medic x4
-  //   ...
-  //   [Player 2]
-  //   ...
-  // Card names are matched case-insensitively (card keys work too). Lines starting with # are comments.
-  function decksToText(recipes){
-    var lines = ['# Structure Siege decks', '# One card per line: <card name> x<copies>', ''];
-    recipes.forEach(function(recipe, side){
-      lines.push('[Player ' + (side + 1) + ']');
-      Object.keys(CARD_DEFS).forEach(function(k){ if (recipe[k] > 0) lines.push(CARD_DEFS[k].name + ' x' + recipe[k]); });
-      lines.push('');
-    });
-    return lines.join('\n');
-  }
-  // Returns { recipes, errors } — unknown names are reported, not silently dropped.
-  function parseDecksText(text){
-    var byName = {};
-    Object.keys(CARD_DEFS).forEach(function(k){ byName[k.toLowerCase()] = k; byName[CARD_DEFS[k].name.toLowerCase()] = k; });
-    var recipes = [defaultRecipe(), defaultRecipe()].map(function(r){ Object.keys(r).forEach(function(k){ r[k] = 0; }); return r; });
-    var errors = [], side = -1;
-    text.split(/\r?\n/).forEach(function(raw, n){
-      var line = raw.trim();
-      if (!line || line.charAt(0) === '#') return;
-      var m = line.match(/^\[\s*player\s*([12])\s*\]$/i);
-      if (m){ side = parseInt(m[1], 10) - 1; return; }
-      var cm = line.match(/^(.+?)\s*[x×:]\s*(\d+)$/i);
-      if (!cm){ errors.push('Line ' + (n + 1) + ': could not read "' + raw + '"'); return; }
-      var key = byName[cm[1].trim().toLowerCase()];
-      if (!key){ errors.push('Line ' + (n + 1) + ': unknown card "' + cm[1].trim() + '"'); return; }
-      if (side === -1){ errors.push('Line ' + (n + 1) + ': card listed before any [Player N] header'); return; }
-      recipes[side][key] = Math.max(0, Math.min(MAX_COPIES, parseInt(cm[2], 10)));
-    });
-    return { recipes: recipes, errors: errors };
-  }
-  var deckRecipes = [defaultRecipe(), defaultRecipe()];
+  var deckRecipes = loadDeckRecipes();
 
   var STRUCTURE_HP = 30, STRUCTURE_COUNT = 3, UNIT_SLOTS = 5, TRAP_SLOTS = 5, CONTINUOUS_SLOTS = 2;
   var PREDATOR_DEATH_AOE = 5;
-  var INITIAL_HAND = 6, DRAW_PER_ROUND = 3, SIM_TICKS = 60;
+  var DRAW_PER_ROUND = 3, SIM_TICKS = 60;
 
   var cardUid = 0;
   function makeCard(key){
@@ -1588,6 +1345,7 @@
       case 'loadedgun': result = doLoadedGun(side, idx, u, state.tick); break;
       case 'undertaker': result = doUndertaker(side, idx, u, state.tick); break;
       case 'martyr': result = doMartyr(side, idx, u, state.tick); break;
+      case 'gravedigger': result = doGravedigger(side, idx, u, state.tick); break;
     }
     if (result !== 'PAUSED') state.manualPause = false;
     render();
@@ -1851,34 +1609,9 @@
   }
 
   // ---------- Rendering ----------
-  function el(tag, cls, attrs){
-    var e = document.createElement(tag);
-    if (cls) e.className = cls;
-    if (attrs) for (var k in attrs) e.setAttribute(k, attrs[k]);
-    return e;
-  }
-
   function prioBadge(side, zone, idx){
     var n = slotPriority(side, zone, idx);
     return '<div class="prio-badge mono" title="Priority ' + n + ' — lower acts first on ties">' + n + '</div>';
-  }
-
-  function cardColorClass(card){
-    if (card.type === 'trap' || card.type === 'continuous') return 'ctrap';
-    if (card.type === 'equip') return 'cequip';
-    if (card.unitType === 'attacker') return 'cattack';
-    if (card.unitType === 'healer') return 'cheal';
-    return 'cspecial';
-  }
-
-  function statLines(card){
-    if (card.type === 'equip') return ['EQUIP', ''];
-    if (card.type === 'continuous') return ['FIELD', ''];
-    if (card.type === 'trap') return ['TRAP', '1-USE'];
-    if (card.unitType === 'attacker') return ['PWR ' + card.power, 'HP ' + card.hp];
-    if (card.unitType === 'healer') return ['HEAL ' + card.heal, 'HP ' + card.hp];
-    if (card.unitType === 'passive') return ['PASSIVE', 'HP ' + card.hp];
-    return ['SPECIAL', 'HP ' + card.hp];
   }
 
   function renderHandCard(side, card, idx){
@@ -2163,114 +1896,7 @@
     renderChoiceOverlay();
   }
 
-  // ---------- Deck editor ----------
-  var deckEditorSide = 0;
-  var DECK_GROUPS = [['Units', 'unit'], ['Traps', 'trap'], ['Equips', 'equip'], ['Continuous', 'continuous']];
-
-  function openDeckEditor(){
-    document.getElementById('deckOverlay').hidden = false;
-    renderDeckEditor();
-  }
-  function closeDeckEditor(){
-    document.getElementById('deckOverlay').hidden = true;
-  }
-  function deckTotal(recipe){ return Object.keys(recipe).reduce(function(a, k){ return a + recipe[k]; }, 0); }
-
-  function renderDeckEditor(){
-    var recipe = deckRecipes[deckEditorSide];
-    [0, 1].forEach(function(i){ document.getElementById('deckTab' + i).className = 'btn small deck-tab' + (i === deckEditorSide ? ' active' : ''); });
-    var total = deckTotal(recipe);
-    document.getElementById('deckTotal').textContent = total + ' cards';
-    document.getElementById('deckBreakdown').textContent = DECK_GROUPS.map(function(g){
-      var n = Object.keys(recipe).reduce(function(a, k){ return a + (CARD_DEFS[k].type === g[1] ? recipe[k] : 0); }, 0);
-      return g[0] + ' ' + n;
-    }).join(' · ') + (total < INITIAL_HAND ? ' · needs at least ' + INITIAL_HAND + ' for the opening hand' : '');
-
-    document.getElementById('deckTextarea').value = decksToText(deckRecipes);
-    document.getElementById('deckTextStatus').textContent = '';
-
-    var list = document.getElementById('deckList');
-    list.innerHTML = '';
-    DECK_GROUPS.forEach(function(g){
-      list.appendChild(el('div', 'deck-group', {})).textContent = g[0];
-      Object.keys(CARD_DEFS).forEach(function(key){
-        var card = CARD_DEFS[key];
-        if (card.type !== g[1]) return;
-        var row = el('div', 'deck-row' + (recipe[key] === 0 ? ' zero' : ''), {});
-        var sub = card.type === 'unit' ? card.unitType : '';
-        row.innerHTML =
-          '<div class="icon">' + card.icon + '</div>' +
-          '<div class="info"><div class="name">' + card.name + (sub ? '<small>' + sub + '</small>' : '') + '</div><div class="fx">' + card.effect + '</div></div>' +
-          '<div class="stepper"><button class="btn" type="button" aria-label="fewer">−</button><b class="mono">' + recipe[key] + '</b><button class="btn" type="button" aria-label="more">+</button></div>';
-        var btns = row.querySelectorAll('button');
-        btns[0].disabled = recipe[key] <= 0;
-        btns[1].disabled = recipe[key] >= MAX_COPIES;
-        btns[0].addEventListener('click', function(){ recipe[key] = Math.max(0, recipe[key] - 1); renderDeckEditor(); });
-        btns[1].addEventListener('click', function(){ recipe[key] = Math.min(MAX_COPIES, recipe[key] + 1); renderDeckEditor(); });
-        list.appendChild(row);
-      });
-    });
-  }
-
-  document.getElementById('decksBtn').addEventListener('click', openDeckEditor);
-  document.getElementById('deckClose').addEventListener('click', closeDeckEditor);
-  document.getElementById('deckTab0').addEventListener('click', function(){ deckEditorSide = 0; renderDeckEditor(); });
-  document.getElementById('deckTab1').addEventListener('click', function(){ deckEditorSide = 1; renderDeckEditor(); });
-  document.getElementById('deckCopy').addEventListener('click', function(){
-    deckRecipes[deckEditorSide] = JSON.parse(JSON.stringify(deckRecipes[1 - deckEditorSide]));
-    renderDeckEditor();
-  });
-  document.getElementById('deckDefault').addEventListener('click', function(){
-    deckRecipes[deckEditorSide] = defaultRecipe();
-    renderDeckEditor();
-  });
-  function applyDecksText(text, sourceLabel){
-    var parsed = parseDecksText(text);
-    var status = document.getElementById('deckTextStatus');
-    if (parsed.errors.length){
-      status.className = 'deck-text-status error';
-      status.textContent = parsed.errors.join('\n');
-      return false;
-    }
-    deckRecipes = parsed.recipes;
-    renderDeckEditor();
-    status.className = 'deck-text-status';
-    status.textContent = 'Loaded' + (sourceLabel ? ' from ' + sourceLabel : '') + '.';
-    return true;
-  }
-  document.getElementById('deckTextApply').addEventListener('click', function(){
-    applyDecksText(document.getElementById('deckTextarea').value, '');
-  });
-  document.getElementById('deckExport').addEventListener('click', function(){
-    var blob = new Blob([decksToText(deckRecipes)], { type: 'text/plain' });
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'decks.txt';
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
-  });
-  document.getElementById('deckImport').addEventListener('click', function(){ document.getElementById('deckFileInput').click(); });
-  document.getElementById('deckFileInput').addEventListener('change', function(e){
-    var file = e.target.files && e.target.files[0];
-    if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function(){ document.getElementById('deckTextarea').value = reader.result; document.querySelector('.deck-text').open = true; applyDecksText(reader.result, file.name); };
-    reader.readAsText(file);
-    e.target.value = '';
-  });
-  document.getElementById('deckApply').addEventListener('click', function(){
-    if (deckRecipes.some(function(r){ return deckTotal(r) < INITIAL_HAND; })){
-      alert('Each deck needs at least ' + INITIAL_HAND + ' cards for the opening hand.');
-      return;
-    }
-    document.getElementById('deckOverlay').hidden = true;
-    state = freshState();
-    lastHandUids = [new Set(), new Set()];
-    render();
-  });
-
   document.addEventListener('keydown', function(e){
-    if (e.key === 'Escape' && !document.getElementById('deckOverlay').hidden){ closeDeckEditor(); return; }
     if (e.key === 'Escape' && state.attaching){ state.attaching = null; render(); }
   });
   document.getElementById('resetBtn').addEventListener('click', resetGame);

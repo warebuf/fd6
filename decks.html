@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deck Builder · fd6</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="shared.css">
+<style>
+  html,body{ overflow:hidden; }
+
+  .deck-tabs{ display:flex; gap:4px; }
+  .deck-tab.active{ background:var(--text); color:var(--bg); border-color:var(--text); }
+
+  .builder{
+    flex:1 1 auto; min-height:0; max-width:1300px; width:100%; margin:0 auto;
+    padding:10px 14px; display:flex; gap:12px;
+  }
+  .pane{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    display:flex; flex-direction:column; min-height:0; overflow:hidden;
+  }
+  .pool-pane{ flex:1 1 56%; }
+  .deck-pane{ flex:1 1 44%; }
+
+  .pane-head{ flex:0 0 auto; padding:10px 12px; border-bottom:1px solid var(--line); display:flex; flex-direction:column; gap:8px; }
+  .pane-title{ font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:.85rem; letter-spacing:.03em; text-transform:uppercase; color:var(--text-dim); }
+  .pane-toolbar{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .pane-toolbar input[type="search"], .pane-toolbar select{
+    font-family:inherit; font-size:.76rem; padding:5px 9px; border-radius:8px;
+    border:1px solid var(--line); background:var(--panel-2); color:var(--text);
+  }
+  .pane-toolbar input[type="search"]{ flex:1 1 140px; min-width:110px; }
+
+  .deck-summary{ display:flex; gap:14px; flex-wrap:wrap; font-size:.72rem; color:var(--text-dim); }
+  .deck-summary span:first-child{ color:var(--text); font-weight:600; }
+  .deck-summary.warn span:first-child{ color:var(--danger); }
+
+  .pane-list{ flex:1 1 auto; min-height:0; overflow-y:auto; }
+  .row-group{ font-size:.6rem; text-transform:uppercase; letter-spacing:.07em; color:var(--text-dim); padding:8px 12px 3px; background:var(--panel-2); position:sticky; top:0; }
+  .empty-msg{ font-size:.75rem; color:var(--text-dim); font-style:italic; padding:20px 14px; text-align:center; }
+
+  .row-card{ display:flex; align-items:center; gap:8px; padding:6px 12px 6px 9px; border-top:1px solid var(--line); border-left:3px solid var(--line); }
+  .row-card.cattack{ border-left-color:var(--danger); }
+  .row-card.cheal{ border-left-color:var(--heal); }
+  .row-card.ctrap{ border-left-color:var(--trap); }
+  .row-card.cequip{ border-left-color:var(--equip); }
+  .row-card.cspecial{ border-left-color:var(--special); }
+  .row-card .icon{ width:22px; text-align:center; font-size:1rem; flex:0 0 auto; }
+  .row-card .info{ flex:1 1 auto; min-width:0; }
+  .row-card .name{ font-weight:600; font-size:.8rem; }
+  .row-card .name small{ font-weight:500; color:var(--text-dim); margin-left:6px; font-size:.68rem; }
+  .row-card .pills{ display:flex; gap:4px; flex-wrap:wrap; margin:2px 0; }
+  .pill-stat{ font-size:.62rem; padding:1px 6px; border-radius:999px; background:var(--panel-2); border:1px solid var(--line); color:var(--text-dim); white-space:nowrap; }
+  .row-card .fx{ font-size:.7rem; color:var(--text-dim); }
+  .row-card.maxed{ opacity:.55; }
+
+  /* pool pane: full stepper */
+  .stepper{ display:flex; align-items:center; gap:2px; flex:0 0 auto; }
+  .stepper button{ width:24px; height:24px; padding:0; border-radius:6px; font-size:.9rem; line-height:1; }
+  .stepper b{ width:26px; text-align:center; font-size:.85rem; }
+
+  /* deck pane: compact manifest row */
+  .row-card.compact{ padding:5px 12px 5px 9px; cursor:pointer; }
+  .row-card.compact:hover{ background:var(--panel-2); }
+  .row-card.compact .name{ font-size:.78rem; }
+  .row-card.compact .qty-ctrl{ display:flex; align-items:center; gap:6px; flex:0 0 auto; }
+  .row-card.compact .qty-badge{ font-size:.78rem; font-weight:700; min-width:16px; text-align:center; }
+  .row-card.compact .mini-btn{ width:22px; height:22px; padding:0; border-radius:6px; font-size:.85rem; line-height:1; }
+
+  .deck-actions{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; padding:0 12px; }
+  .advanced{ flex:0 0 auto; border-top:1px solid var(--line); padding:8px 12px 12px; }
+  .advanced summary{ font-size:.75rem; color:var(--text-dim); cursor:pointer; padding:4px 0; }
+  .advanced-body{ display:flex; flex-direction:column; gap:8px; margin-top:6px; }
+  .advanced textarea{ width:100%; font-size:.72rem; background:var(--panel-2); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px; resize:vertical; }
+  .deck-text-status{ font-size:.72rem; color:var(--text-dim); white-space:pre-wrap; }
+  .deck-text-status.error{ color:var(--danger); }
+
+  @media (max-width:820px){
+    html,body{ overflow-y:auto; }
+    .builder{ flex-direction:column; overflow:visible; }
+    .pane{ flex:0 0 auto; max-height:60vh; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">fd6<small>deck builder</small></div>
+    <div class="deck-tabs" role="tablist">
+      <button class="btn small deck-tab" id="deckTab0" role="tab">Player 1</button>
+      <button class="btn small deck-tab" id="deckTab1" role="tab">Player 2</button>
+    </div>
+    <span class="spacer"></span>
+    <a class="btn ghost small" href="index.html">← Back to game</a>
+    <button class="btn primary" id="deckApply">Apply &amp; New Game</button>
+  </div>
+</header>
+
+<main class="builder">
+  <section class="pane pool-pane">
+    <div class="pane-head">
+      <div class="pane-title">Card pool</div>
+      <div class="pane-toolbar">
+        <input type="search" id="deckSearch" placeholder="Search cards..." aria-label="Search cards">
+        <select id="deckTypeFilter" aria-label="Filter by type">
+          <option value="all">Type: All</option>
+          <option value="unit">Units</option>
+          <option value="trap">Traps</option>
+          <option value="equip">Equips</option>
+          <option value="continuous">Continuous</option>
+        </select>
+      </div>
+    </div>
+    <div class="pane-list" id="poolList"></div>
+  </section>
+
+  <section class="pane deck-pane">
+    <div class="pane-head">
+      <div class="pane-title">Your deck</div>
+      <div class="deck-summary mono" id="deckSummary"><span id="deckTotal"></span><span id="deckBreakdown"></span></div>
+    </div>
+    <div class="deck-actions">
+      <button class="btn small" id="deckCopy">Copy from other player</button>
+      <button class="btn small" id="deckDefault">Reset to default</button>
+      <button class="btn small" id="deckClearAll" title="Remove every card from this deck">Clear all</button>
+    </div>
+    <div class="pane-list" id="deckList"></div>
+    <details class="advanced">
+      <summary>Advanced: export, import, edit as text</summary>
+      <div class="advanced-body">
+        <textarea id="deckTextarea" class="mono" spellcheck="false" rows="8"></textarea>
+        <div class="deck-actions" style="padding:0;">
+          <button class="btn small" id="deckTextApply">Apply text</button>
+          <span class="deck-text-status" id="deckTextStatus"></span>
+        </div>
+        <div class="deck-actions" style="padding:0;">
+          <button class="btn small" id="deckExport" title="Download both decks as decks.txt">Export file</button>
+          <button class="btn small" id="deckImport" title="Load decks from a text file">Import file</button>
+          <input type="file" id="deckFileInput" accept=".txt,text/plain" hidden>
+        </div>
+      </div>
+    </details>
+  </section>
+</main>
+
+<script src="shared.js"></script>
+<script>
+(function(){
+  var deckRecipes = loadDeckRecipes();
+  var deckEditorSide = 0;
+  var searchText = '';
+  var typeFilter = 'all';
+  var DECK_GROUPS = [['Units', 'unit'], ['Traps', 'trap'], ['Equips', 'equip'], ['Continuous', 'continuous']];
+
+  function deckTotal(recipe){ return Object.keys(recipe).reduce(function(a, k){ return a + recipe[k]; }, 0); }
+  function matchesFilter(card){
+    if (typeFilter !== 'all' && card.type !== typeFilter) return false;
+    var s = searchText.trim().toLowerCase();
+    if (!s) return true;
+    return card.name.toLowerCase().indexOf(s) !== -1 || card.effect.toLowerCase().indexOf(s) !== -1;
+  }
+  function visibleKeys(){
+    return Object.keys(CARD_DEFS).filter(function(key){ return matchesFilter(CARD_DEFS[key]); });
+  }
+
+  function renderPool(){
+    var recipe = deckRecipes[deckEditorSide];
+    var keys = visibleKeys();
+    var list = document.getElementById('poolList');
+    list.innerHTML = '';
+    DECK_GROUPS.forEach(function(g){
+      var groupKeys = keys.filter(function(key){ return CARD_DEFS[key].type === g[1]; });
+      if (!groupKeys.length) return;
+      list.appendChild(el('div', 'row-group', {})).textContent = g[0];
+      groupKeys.forEach(function(key){
+        var card = CARD_DEFS[key];
+        var qty = recipe[key];
+        var maxed = qty >= MAX_COPIES;
+        var row = el('div', 'row-card ' + cardColorClass(card) + (maxed ? ' maxed' : ''), {});
+        var sub = card.type === 'unit' ? card.unitType : '';
+        var lines = statLines(card).filter(Boolean);
+        var pills = lines.map(function(l){ return '<span class="pill-stat mono">' + l + '</span>'; }).join('');
+        row.innerHTML =
+          '<div class="icon">' + card.icon + '</div>' +
+          '<div class="info"><div class="name">' + card.name + (sub ? '<small>' + sub + '</small>' : '') + '</div>' +
+          '<div class="pills">' + pills + '</div>' +
+          '<div class="fx">' + card.effect + '</div></div>' +
+          '<div class="stepper"><button class="btn" type="button" aria-label="fewer">−</button><b class="mono">' + qty + '</b><button class="btn" type="button" aria-label="more">+</button></div>';
+        var btns = row.querySelectorAll('button');
+        btns[0].disabled = qty <= 0;
+        btns[1].disabled = maxed;
+        btns[0].addEventListener('click', function(){ recipe[key] = Math.max(0, recipe[key] - 1); renderAll(); });
+        btns[1].addEventListener('click', function(){ recipe[key] = Math.min(MAX_COPIES, recipe[key] + 1); renderAll(); });
+        list.appendChild(row);
+      });
+    });
+    if (!keys.length) list.appendChild(el('div', 'empty-msg', {})).textContent = 'No cards match your search.';
+  }
+
+  function renderDeckPane(){
+    var recipe = deckRecipes[deckEditorSide];
+    var total = deckTotal(recipe);
+    document.getElementById('deckTotal').textContent = total + ' cards';
+    document.getElementById('deckBreakdown').textContent = DECK_GROUPS.map(function(g){
+      var n = Object.keys(recipe).reduce(function(a, k){ return a + (CARD_DEFS[k].type === g[1] ? recipe[k] : 0); }, 0);
+      return g[0] + ' ' + n;
+    }).join(' · ');
+    document.getElementById('deckSummary').className = 'deck-summary mono' + (total < INITIAL_HAND ? ' warn' : '');
+    if (total < INITIAL_HAND){
+      document.getElementById('deckBreakdown').textContent += ' · needs at least ' + INITIAL_HAND + ' for the opening hand';
+    }
+
+    var list = document.getElementById('deckList');
+    list.innerHTML = '';
+    var any = false;
+    DECK_GROUPS.forEach(function(g){
+      var keys = Object.keys(CARD_DEFS).filter(function(key){ return CARD_DEFS[key].type === g[1] && recipe[key] > 0; });
+      if (!keys.length) return;
+      any = true;
+      list.appendChild(el('div', 'row-group', {})).textContent = g[0];
+      keys.forEach(function(key){
+        var card = CARD_DEFS[key];
+        var row = el('div', 'row-card compact ' + cardColorClass(card), { tabindex:'0', role:'button', title:'Click to remove one copy' });
+        row.innerHTML =
+          '<div class="icon">' + card.icon + '</div>' +
+          '<div class="info"><div class="name">' + card.name + '</div></div>' +
+          '<div class="qty-ctrl">' +
+            '<button class="btn mini-btn" type="button" aria-label="fewer">−</button>' +
+            '<span class="qty-badge mono">' + recipe[key] + '</span>' +
+            '<button class="btn mini-btn" type="button" aria-label="more" ' + (recipe[key] >= MAX_COPIES ? 'disabled' : '') + '>+</button>' +
+          '</div>';
+        var btns = row.querySelectorAll('button');
+        btns[0].addEventListener('click', function(e){ e.stopPropagation(); recipe[key] = Math.max(0, recipe[key] - 1); renderAll(); });
+        btns[1].addEventListener('click', function(e){ e.stopPropagation(); recipe[key] = Math.min(MAX_COPIES, recipe[key] + 1); renderAll(); });
+        row.addEventListener('click', function(){ recipe[key] = Math.max(0, recipe[key] - 1); renderAll(); });
+        row.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); recipe[key] = Math.max(0, recipe[key] - 1); renderAll(); } });
+        list.appendChild(row);
+      });
+    });
+    if (!any) list.appendChild(el('div', 'empty-msg', {})).textContent = 'Your deck is empty — add cards from the pool on the left.';
+  }
+
+  function renderAll(){
+    [0, 1].forEach(function(i){ document.getElementById('deckTab' + i).className = 'btn small deck-tab' + (i === deckEditorSide ? ' active' : ''); });
+    document.getElementById('deckTextarea').value = decksToText(deckRecipes);
+    document.getElementById('deckTextStatus').textContent = '';
+    renderPool();
+    renderDeckPane();
+  }
+
+  document.getElementById('deckTab0').addEventListener('click', function(){ deckEditorSide = 0; renderAll(); });
+  document.getElementById('deckTab1').addEventListener('click', function(){ deckEditorSide = 1; renderAll(); });
+  document.getElementById('deckSearch').addEventListener('input', function(e){ searchText = e.target.value; renderPool(); });
+  document.getElementById('deckTypeFilter').addEventListener('change', function(e){ typeFilter = e.target.value; renderPool(); });
+
+  document.getElementById('deckCopy').addEventListener('click', function(){
+    deckRecipes[deckEditorSide] = JSON.parse(JSON.stringify(deckRecipes[1 - deckEditorSide]));
+    renderAll();
+  });
+  document.getElementById('deckDefault').addEventListener('click', function(){
+    deckRecipes[deckEditorSide] = defaultRecipe();
+    renderAll();
+  });
+  document.getElementById('deckClearAll').addEventListener('click', function(){
+    deckRecipes[deckEditorSide] = emptyRecipe();
+    renderAll();
+  });
+
+  function applyDecksText(text, sourceLabel){
+    var parsed = parseDecksText(text);
+    var status = document.getElementById('deckTextStatus');
+    if (parsed.errors.length){
+      status.className = 'deck-text-status error';
+      status.textContent = parsed.errors.join('\n');
+      return false;
+    }
+    deckRecipes = parsed.recipes;
+    renderAll();
+    status.className = 'deck-text-status';
+    status.textContent = 'Loaded' + (sourceLabel ? ' from ' + sourceLabel : '') + '.';
+    return true;
+  }
+  document.getElementById('deckTextApply').addEventListener('click', function(){
+    applyDecksText(document.getElementById('deckTextarea').value, '');
+  });
+  document.getElementById('deckExport').addEventListener('click', function(){
+    var blob = new Blob([decksToText(deckRecipes)], { type: 'text/plain' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'decks.txt';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+  });
+  document.getElementById('deckImport').addEventListener('click', function(){ document.getElementById('deckFileInput').click(); });
+  document.getElementById('deckFileInput').addEventListener('change', function(e){
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      document.getElementById('deckTextarea').value = reader.result;
+      document.querySelector('.advanced').open = true;
+      applyDecksText(reader.result, file.name);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  document.getElementById('deckApply').addEventListener('click', function(){
+    if (deckRecipes.some(function(r){ return deckTotal(r) < INITIAL_HAND; })){
+      alert('Each deck needs at least ' + INITIAL_HAND + ' cards for the opening hand.');
+      return;
+    }
+    saveDeckRecipes(deckRecipes);
+    window.location.href = 'index.html';
+  });
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') window.location.href = 'index.html';
+  });
+
+  renderAll();
+})();
+</script>
+</body>
+</html>

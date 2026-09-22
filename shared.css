@@ -1,0 +1,76 @@
+/* Shared design tokens + base styles for fd6 pages (index.html, decks.html). */
+:root{
+  --bg:#eef1f5; --panel:#ffffff; --panel-2:#f5f7fa; --line:#d7dee7;
+  --text:#141a22; --text-dim:#5b6b80;
+  --p1:#0e8f88; --p1-bg:#e3f7f5;
+  --p2:#c1690a; --p2-bg:#fdf0e2;
+  --danger:#c53c42; --heal:#2f9e52; --trap:#7c4fc4;
+  --equip:#3f6fb0; --special:#8a6d3b;
+  --shadow:0 1px 2px rgba(20,26,34,.07);
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b0f14; --panel:#121821; --panel-2:#1a2230; --line:#2a3446;
+    --text:#e8edf4; --text-dim:#8fa0b8;
+    --p1:#4fd1c5; --p1-bg:#12302e;
+    --p2:#f0a35a; --p2-bg:#3a2716;
+    --danger:#ff7373; --heal:#7ee08a; --trap:#c79bfa;
+    --equip:#7fb0ff; --special:#e0b989;
+    --shadow:0 1px 3px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0b0f14; --panel:#121821; --panel-2:#1a2230; --line:#2a3446;
+  --text:#e8edf4; --text-dim:#8fa0b8;
+  --p1:#4fd1c5; --p1-bg:#12302e;
+  --p2:#f0a35a; --p2-bg:#3a2716;
+  --danger:#ff7373; --heal:#7ee08a; --trap:#c79bfa;
+  --equip:#7fb0ff; --special:#e0b989;
+  --shadow:0 1px 3px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box;}
+html,body{ margin:0; padding:0; height:100%; }
+body{
+  background:var(--bg); color:var(--text);
+  font-family:'IBM Plex Sans', system-ui, sans-serif;
+  display:flex; flex-direction:column;
+}
+.mono{ font-family:'IBM Plex Mono', ui-monospace, monospace; }
+.display{ font-family:'Chakra Petch', system-ui, sans-serif; }
+
+button{ font-family:inherit; }
+button:focus-visible, .card:focus-visible, .slot:focus-visible, summary:focus-visible{
+  outline:2px solid var(--p1); outline-offset:2px;
+}
+
+/* ---------- Topbar ---------- */
+.topbar{
+  flex:0 0 auto;
+  background:var(--panel); border-bottom:1px solid var(--line);
+  padding:6px 14px; box-shadow:var(--shadow);
+}
+.topbar-inner{
+  max-width:1300px; margin:0 auto; display:flex; align-items:center;
+  gap:10px; flex-wrap:wrap;
+}
+.brand{ font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:.95rem; letter-spacing:.02em; white-space:nowrap; }
+.brand small{ display:none; }
+.pill{
+  border:1px solid var(--line); border-radius:999px; padding:2px 9px;
+  background:var(--panel-2); white-space:nowrap;
+}
+.spacer{ flex:1 1 auto; }
+.btn{
+  font-weight:600; font-size:.78rem; padding:6px 13px; border-radius:8px;
+  border:1px solid var(--line); background:var(--panel-2); color:var(--text); cursor:pointer;
+  text-decoration:none; display:inline-flex; align-items:center;
+}
+.btn:hover:not(:disabled){ border-color:var(--p1); }
+.btn:disabled{ opacity:.5; cursor:default; }
+.btn.primary{ background:var(--text); color:var(--bg); border-color:var(--text); }
+.btn.ghost{ background:transparent; }
+.btn.small{ padding:4px 9px; font-size:.68rem; }
+
+[hidden]{ display:none !important; }
