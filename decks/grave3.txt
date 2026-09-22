@@ -1,0 +1,12 @@
+# Deck: grave3
+# One card per line: <card name> x<copies>
+
+Medic x1
+Mirror Wall x1
+Gravedigger x2
+Undertaker x1
+Bodyguard x3
+Pallbearer x3
+Last Will x1
+Dead Man's Switch x1
+Gravestone x3

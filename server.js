@@ -61,6 +61,20 @@ function saveDeck(req, res){
   });
 }
 
+// Only ever unlinks a plain .txt directly inside decks/ — the name is reduced to its basename and
+// re-checked against the slug shape saveDeck() writes, so nothing can point the delete outside the folder.
+function deleteDeck(res, rawName){
+  var file = path.basename(decodeURIComponent(rawName || ''));
+  if (!/^[a-z0-9][a-z0-9-]*\.txt$/.test(file)) return send(res, 400, { error: 'Not a deck file name.' });
+  var target = path.join(DECKS_DIR, file);
+  if (path.dirname(target) !== DECKS_DIR) return send(res, 403, { error: 'Forbidden.' });
+  if (!fs.existsSync(target)) return send(res, 404, { error: 'That deck no longer exists.' });
+  fs.unlinkSync(target);
+  rebuildIndex();
+  console.log('deleted decks/' + file);
+  send(res, 200, { file: file });
+}
+
 function serveStatic(req, res){
   var urlPath = decodeURIComponent(req.url.split('?')[0]);
   if (urlPath === '/') urlPath = '/index.html';
@@ -75,6 +89,8 @@ function serveStatic(req, res){
 http.createServer(function(req, res){
   if (req.url === '/api/status') return send(res, 200, { ok: true });
   if (req.url === '/api/decks' && req.method === 'POST') return saveDeck(req, res);
+  var delPath = req.url.split('?')[0];
+  if (req.method === 'DELETE' && delPath.indexOf('/api/decks/') === 0) return deleteDeck(res, delPath.slice('/api/decks/'.length));
   if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, { error: 'Method not allowed.' });
   serveStatic(req, res);
 }).listen(PORT, function(){

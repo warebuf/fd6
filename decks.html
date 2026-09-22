@@ -101,6 +101,7 @@
   .pub-chip.ctrap{ border-left-color:var(--trap); }
   .pub-chip.cequip{ border-left-color:var(--equip); }
   .pub-chip.cspecial{ border-left-color:var(--special); }
+  .btn.danger:hover:not(:disabled){ border-color:var(--danger); color:var(--danger); }
   .pub-error{ font-size:.68rem; color:var(--danger); white-space:pre-wrap; }
   .advanced{ flex:0 0 auto; border-top:1px solid var(--line); padding:8px 12px 12px; }
   .advanced summary{ font-size:.75rem; color:var(--text-dim); cursor:pointer; padding:4px 0; }
@@ -382,6 +383,7 @@
   // saving needs the local server (node server.js), so the Save button only appears when it responds.
   var lastSavedName = '';
   var publicDecks = [];   // [{ file, name, recipe, errors }]
+  var serverAvailable = false;   // decks/ is writable only when server.js is running; static hosting is read-only
   var publicSearch = '';
 
   function showSharedStatus(text, isError){
@@ -435,6 +437,11 @@
         b.disabled = total === 0 || d.errors.length > 0;
         b.addEventListener('click', function(){ usePublicDeck(d, side); });
       });
+      if (serverAvailable){
+        var del = actions.appendChild(el('button', 'btn small danger', { type: 'button', title: 'Delete decks/' + d.file + ' from the project' }));
+        del.textContent = 'Delete';
+        del.addEventListener('click', function(){ deletePublicDeck(d, del); });
+      }
       if (d.errors.length) row.appendChild(el('div', 'pub-error', {})).textContent = d.file + ':\n' + d.errors.join('\n');
       var cards = row.appendChild(el('div', 'pub-cards', {}));
       Object.keys(CARD_DEFS).forEach(function(k){
@@ -454,6 +461,28 @@
     closePublicDecks();
     renderAll();
     showSharedStatus('Loaded "' + d.name + '" into Player ' + (side + 1) + '.');
+  }
+
+  function deletePublicDeck(d, btn){
+    if (!confirm('Delete the public deck "' + d.name + '"?\n\ndecks/' + d.file + ' will be removed from the project. This cannot be undone.')) return;
+    btn.disabled = true;
+    btn.textContent = 'Deleting…';
+    fetch('api/decks/' + encodeURIComponent(d.file), { method: 'DELETE' })
+      .then(function(r){ return r.json().then(function(body){ return { status: r.status, body: body }; }); })
+      .then(function(res){
+        if (res.status !== 200){
+          showSharedStatus(res.body.error || 'Delete failed.', true);
+          btn.disabled = false; btn.textContent = 'Delete';
+          return;
+        }
+        publicDecks = publicDecks.filter(function(x){ return x.file !== d.file; });
+        renderPublicList();
+        showSharedStatus('Deleted decks/' + d.file + '.');
+      })
+      .catch(function(){
+        showSharedStatus('Delete failed — is node server.js still running?', true);
+        btn.disabled = false; btn.textContent = 'Delete';
+      });
   }
 
   function openPublicDecks(){
@@ -497,7 +526,7 @@
       .catch(function(){ showSharedStatus('Save failed — is node server.js still running?', true); });
   });
   fetch('api/status', { cache: 'no-store' })
-    .then(function(r){ if (r.ok) document.getElementById('deckSaveShared').hidden = false; })
+    .then(function(r){ if (r.ok){ serverAvailable = true; document.getElementById('deckSaveShared').hidden = false; } })
     .catch(function(){});
 
   document.getElementById('deckApply').addEventListener('click', function(){

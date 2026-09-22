@@ -16,7 +16,7 @@ var CARD_DEFS = {
   extortionist: { key:'extortionist', type:'unit', unitType:'passive', name:'Extortionist', icon:'¤', hp:14, cooldown:Infinity,
     effect:'Whenever the opponent activates a trap, continuous, or special ability, choose one of your cards to gain 1 charge.' },
   bodyguard:    { key:'bodyguard',    type:'unit', unitType:'passive', name:'Bodyguard',    icon:'⛨', hp:22, cooldown:Infinity,
-    effect:'May redirect an attack aimed at another of your units or structures onto itself instead.' },
+    effect:'Every attack aimed at another of your units or structures is redirected onto Bodyguard instead, for as long as it lives.' },
   scavenger:    { key:'scavenger',    type:'unit', unitType:'attacker', name:'Scavenger',   icon:'↻', power:5, hp:15, cooldown:20,
     effect:'Every 20 ticks, attacks for 5. Whenever any unit dies (either side), may take its unclaimed equip.' },
   disarmer:     { key:'disarmer',     type:'unit', unitType:'attacker', name:'Disarmer',    icon:'✂', power:8, hp:14, cooldown:20,
@@ -24,13 +24,13 @@ var CARD_DEFS = {
   parasite:     { key:'parasite',     type:'unit', unitType:'special', name:'Parasite',     icon:'☣', hp:8,  cooldown:20, usesCharges:true,
     effect:'Choose one of your other units as its host when placed. Mirrors every charge the host gains from then on.' },
   martyr:       { key:'martyr',       type:'unit', unitType:'special', name:'Martyr',      icon:'✟', hp:12, cooldown:Infinity, startCharges:1, usesCharges:true, activatable:true,
-    effect:'1 charge. Activate it during the battle: give a target unit 2 charges, then Martyr destroys itself.' },
+    effect:'1 charge. Activate it during the battle: give a target unit 3 charges, then Martyr destroys itself. If it is killed instead, it still passes 3 charges on.' },
   loadedgun:    { key:'loadedgun',    type:'unit', unitType:'special', name:'Loaded Gun',   icon:'☍', hp:10, cooldown:Infinity, startCharges:3, usesCharges:true, activatable:true,
     effect:'3 charges. Fire it yourself at any point during the battle: spends 1 charge to deal 2 damage. Destroys itself at 0 charges.' },
   bulwark:      { key:'bulwark',      type:'unit', unitType:'passive', name:'Bulwark',      icon:'⛊', hp:16, cooldown:Infinity,
     effect:'When the battle begins, if Bulwark is the only unit on your side, it doubles its HP and taunts — every enemy attack must target it while it lives.' },
-  pallbearer:   { key:'pallbearer',   type:'unit', unitType:'attacker', name:'Pallbearer',  icon:'⛓', power:20, hp:16, cooldown:20,
-    effect:'Every 20 ticks, attacks for 20 — reduced by 10% for every Grave Token in your graveyard.' },
+  pallbearer:   { key:'pallbearer',   type:'unit', unitType:'attacker', name:'Pallbearer',  icon:'⛓', power:5, hp:16, cooldown:20,
+    effect:'Every 20 ticks, attacks for 5 — and every Grave Token in your graveyard cuts 10% off the ticks between its attacks, to a floor of 5.' },
   mimic:        { key:'mimic',        type:'unit', unitType:'special', name:'Mimic',        icon:'❖', hp:12, cooldown:20, startCharges:1, usesCharges:true,
     effect:"1 charge. Spend it to copy and immediately use another of your unit's action." },
 
@@ -67,7 +67,9 @@ var CARD_DEFS = {
     effect:"Equip. Whenever the equipped unit is attacked, adds a Grave Token to your graveyard." },
 
   ossuary:  { key:'ossuary',  type:'continuous', name:'Ossuary', icon:'⌂',
-    effect:'Continuous. Choose a unit. Every 20 ticks, remove a Grave Token from your graveyard to give it +3 HP.' },
+    effect:'Continuous. Choose a unit. Activate it during the battle: remove a Grave Token from your graveyard to give the target +3 HP.' },
+  vault:    { key:'vault',    type:'continuous', name:'Vault',   icon:'▥',
+    effect:'Continuous. Holds up to 5 charges. When one of your units dies its charges move here instead of being lost, and your traps may spend them as if they were on a unit.' },
   blackbox: { key:'blackbox', type:'continuous', name:'Black Box', icon:'▣',
     effect:'Continuous. Gains a charge whenever one of your cards dies. At 3 charges, replays your last attack or heal.' }
 };
@@ -87,7 +89,7 @@ var DECK_RECIPE = [
   ['lastwill',1], ['hijack',1], ['cannibalize',1],
   ['deathless',1], ['veteranstandard',1], ['battery',1], ['deadmanswitch',1], ['inheritance',1],
   ['conduit',1], ['gravestone',1],
-  ['blackbox',1], ['ossuary',1]
+  ['blackbox',1], ['ossuary',1], ['vault',1]
 ];
 var MAX_COPIES = 12;
 var INITIAL_HAND = 6;

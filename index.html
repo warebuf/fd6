@@ -130,7 +130,8 @@
     padding:1px 7px; border-radius:999px; border:1px solid var(--text); background:var(--text); color:var(--bg);
     cursor:pointer; line-height:1.3; z-index:2; animation:next-pulse 1.4s ease-in-out infinite; --next-color:var(--special);
   }
-  .activate-btn:hover{ filter:brightness(1.15); }
+  .activate-btn:hover:not([disabled]){ filter:brightness(1.15); }
+  .activate-btn[disabled]{ opacity:.35; cursor:not-allowed; animation:none; background:transparent; color:var(--text-dim); border-color:var(--line); }
   .equip-badge{
     position:absolute; top:2px; right:2px; width:14px; height:14px; border-radius:50%;
     background:var(--equip); color:#fff; font-size:9px; display:flex; align-items:center;
@@ -305,6 +306,8 @@
   var STRUCTURE_HP = 30, STRUCTURE_COUNT = 3, UNIT_SLOTS = 5, TRAP_SLOTS = 5, CONTINUOUS_SLOTS = 2;
   var PREDATOR_DEATH_AOE = 5;
   var OSSUARY_HP = 3;
+  var VAULT_CAP = 5, MARTYR_CHARGES = 3;
+  var PALLBEARER_MIN_COOLDOWN = 5;
   var DRAW_PER_ROUND = 3, SIM_TICKS = 60;
 
   var cardUid = 0;
@@ -427,12 +430,12 @@
       var player = state.players[side];
       for (var i = 0; i < player.units.length; i++){
         var u = player.units[i];
-        if (u && u.alive && isFinite(u.card.cooldown) && t % u.card.cooldown === 0) queue.push({ side: side, idx: i, prio: slotPriority(side, 'unit', i) });
+        var cd = u ? unitCooldown(player, u.card) : 0;
+        if (u && u.alive && isFinite(cd) && t % cd === 0) queue.push({ side: side, idx: i, prio: slotPriority(side, 'unit', i) });
       }
       for (var j = 0; j < player.continuous.length; j++){
         var cc = player.continuous[j];
         if (cc && cc.card.key === 'blackbox' && (cc.charges || 0) >= 3) queue.push({ side: side, continuousIdx: j, prio: slotPriority(side, 'continuous', j) });
-        if (cc && cc.card.key === 'ossuary' && t % 20 === 0) queue.push({ side: side, continuousIdx: j, prio: slotPriority(side, 'continuous', j) });
       }
     }
     queue.sort(function(a, b){ return a.prio - b.prio; });
@@ -460,12 +463,7 @@
   }
 
   function processQueueItem(item){
-    if (item.continuousIdx !== undefined){
-      var inst = state.players[item.side].continuous[item.continuousIdx];
-      if (!inst) return undefined;
-      if (inst.card.key === 'ossuary') return resolveOssuary(item.side, item.continuousIdx);
-      return resolveBlackBox(item.side, item.continuousIdx);
-    }
+    if (item.continuousIdx !== undefined) return resolveBlackBox(item.side, item.continuousIdx);
     var u = state.players[item.side].units[item.idx];
     if (!u || !u.alive) return undefined;
     return performAction(item.side, item.idx, u, state.tick);
@@ -584,13 +582,32 @@
   }
 
   // Charges are pooled across a player's living units (see tryHijack): these helpers read and spend that pool.
+  function findVault(player){
+    for (var i = 0; i < player.continuous.length; i++){ if (player.continuous[i] && player.continuous[i].card.key === 'vault') return player.continuous[i]; }
+    return null;
+  }
+  function vaultDeposit(player, amount){
+    var v = findVault(player);
+    if (!v || amount <= 0) return 0;
+    var take = Math.min(amount, VAULT_CAP - (v.charges || 0));
+    if (take <= 0) return 0;
+    v.charges = (v.charges || 0) + take;
+    return take;
+  }
   function totalCharges(player){
     var sum = 0;
     player.units.forEach(function(u){ if (u && u.alive) sum += (u.charges || 0); });
-    return sum;
+    var v = findVault(player);
+    return sum + (v ? (v.charges || 0) : 0);
   }
 
   function spendCharges(player, amount){
+    var v = findVault(player);
+    if (v && v.charges > 0){
+      var fromVault = Math.min(v.charges, amount);
+      v.charges -= fromVault;
+      amount -= fromVault;
+    }
     for (var i = 0; i < player.units.length && amount > 0; i++){
       var u = player.units[i];
       if (!u || !u.alive || !(u.charges > 0)) continue;
@@ -731,6 +748,15 @@
     u.alive = false;
     p.units[idx] = null;
 
+    if (card.key === 'martyr' && !opts.martyrPaid){
+      var heir = findChargeRecipient(p, idx);
+      if (heir !== -1){
+        gainCharges(side, heir, MARTYR_CHARGES);
+        addLog(p.name + "'s Martyr passes " + MARTYR_CHARGES + ' charges to ' + p.units[heir].card.name + ' as it dies.', 'meta');
+      }
+    }
+    var banked = vaultDeposit(p, u.charges || 0);
+    if (banked > 0) addLog(p.name + "'s Vault catches " + banked + ' charge(s) from ' + card.name + '.', 'meta');
     p.units.forEach(function(uu){ if (uu && uu.alive && uu.card.key === 'undertaker') uu.charges = (uu.charges || 0) + 1; });
     p.continuous.forEach(function(cc){ if (cc && cc.card.key === 'blackbox') cc.charges = (cc.charges || 0) + 1; });
     p.units.forEach(function(uu){ if (uu && uu.alive && uu.card.key === 'parasite' && uu.hostSlot === idx) uu.hostSlot = null; });
@@ -752,8 +778,7 @@
     if (card.unitType === 'attacker'){
       var power = card.power;
       if (u.equip && u.equip.card.key === 'veteranstandard') power += selfPlayer.summonCount;
-      power = gravePenaltyPower(selfPlayer, card, power);
-      if (power > 0) resolveAttackHit(side, 1 - side, power, selfPlayer.name + "'s " + card.name + " (Dead Man's Switch)", t, undefined, { disarm: card.key === 'disarmer' });
+      resolveAttackHit(side, 1 - side, power, selfPlayer.name + "'s " + card.name + " (Dead Man's Switch)", t, undefined, { disarm: card.key === 'disarmer' });
     } else if (card.unitType === 'healer'){
       var best = findHealTarget(selfPlayer);
       if (best) applyHeal(selfPlayer, best, card.heal, selfPlayer.name + "'s " + card.name + " (Dead Man's Switch)", t);
@@ -815,24 +840,12 @@
     if (trapResult === 'PAUSED') return 'PAUSED';
     if (trapResult === true) return undefined;
     var bgSlot = findLivingBodyguardSlot(dp);
-    // A taunt beats Bodyguard's offer: the attack is already forced onto the Bulwark.
+    // Bodyguard intercepts automatically — no prompt. A taunt still outranks it: the attack is already
+    // forced onto the Bulwark, so Bodyguard cannot pull it back off.
     if (bgSlot !== -1 && !(target.kind === 'unit' && target.idx === bgSlot) && findTauntSlot(dp) === -1){
-      var originalTarget = target;
-      pauseForChoice({
-        title: 'Bodyguard',
-        message: dp.name + "'s Bodyguard offers to intercept this attack. Redirect it to Bodyguard?",
-        options: [
-          { label: 'Redirect to Bodyguard', onClick: function(){
-              var r = applyDamageToTarget(attackerSide, defSide, 'unit', bgSlot, power, sourceLabel, t, opts);
-              if (r !== 'PAUSED') drainQueue();
-          }},
-          { label: 'Let it land normally', onClick: function(){
-              var r = applyDamageToTarget(attackerSide, defSide, originalTarget.kind, originalTarget.idx, power, sourceLabel, t, opts);
-              if (r !== 'PAUSED') drainQueue();
-          }}
-        ]
-      });
-      return 'PAUSED';
+      var shielded = target.kind === 'unit' ? dp.units[target.idx].card.name : 'Structure ' + (target.idx + 1);
+      addLog('t' + t + ': ' + dp.name + "'s Bodyguard steps in front of " + shielded + '.', 'trap');
+      return applyDamageToTarget(attackerSide, defSide, 'unit', bgSlot, power, sourceLabel, t, opts);
     }
     return applyDamageToTarget(attackerSide, defSide, target.kind, target.idx, power, sourceLabel, t, opts);
   }
@@ -1152,9 +1165,11 @@
     if (hijackIdx === -1) return null;
     var chargedSlot = -1;
     for (var j = 0; j < op.units.length; j++){ if (op.units[j] && op.units[j].alive && (op.units[j].charges || 0) > 0){ chargedSlot = j; break; } }
-    if (chargedSlot === -1) return null;
+    var vault = findVault(op);
+    if (chargedSlot === -1 && !(vault && vault.charges > 0)) return null;
     chargeExtortion(opp);
-    op.units[chargedSlot].charges -= 1;
+    if (chargedSlot === -1) vault.charges -= 1;
+    else op.units[chargedSlot].charges -= 1;
     consumeTrap(opp, hijackIdx);
     addLog(op.name + "'s Hijack seizes control of the effect!", 'trap');
     return opp;
@@ -1191,8 +1206,6 @@
     var selfPlayer = state.players[side];
     var power = card.power;
     if (u.equip && u.equip.card.key === 'veteranstandard') power += selfPlayer.summonCount;
-    power = gravePenaltyPower(selfPlayer, card, power);
-    if (power <= 0){ logIdle(side, card.name, t, 'weighed down by ' + countGraveTokens(selfPlayer) + ' Grave Token(s)'); return; }
     selfPlayer.lastAction = { kind: 'attack', amount: power };
     return resolveAttackHit(side, 1 - side, power, selfPlayer.name + "'s " + card.name, t, slotIdx, { disarm: card.key === 'disarmer' });
   }
@@ -1295,7 +1308,6 @@
     if (template.unitType === 'attacker'){
       var power = template.power;
       if (selfPlayer.units[templateIdx].equip && selfPlayer.units[templateIdx].equip.card.key === 'veteranstandard') power += selfPlayer.summonCount;
-      power = gravePenaltyPower(selfPlayer, template, power);
       var r = resolveAttackHit(side, 1 - side, power, label, t, slotIdx, { disarm: template.key === 'disarmer' });
       selfPlayer.lastAction = { kind: 'attack', amount: power };
       if (r === 'PAUSED') return 'PAUSED';
@@ -1318,12 +1330,12 @@
     var unitLabel = function(i){ var x = selfPlayer.units[i]; return x.card.name + ' (' + x.hp + '/' + x.maxHp + ' HP)'; };
     pauseForChoice({
       title: 'Martyr',
-      message: selfPlayer.name + ', choose the unit to receive 2 charges from Martyr.',
+      message: selfPlayer.name + ', choose the unit to receive ' + MARTYR_CHARGES + ' charges from Martyr.',
       options: targets.map(function(i){
         return { label: unitLabel(i), onClick: function(){
-          gainCharges(side, i, 2);
-          addLog('t' + t + ': ' + selfPlayer.name + "'s Martyr gives 2 charges to " + selfPlayer.units[i].card.name + ' and destroys itself.', 'meta');
-          destroyUnit(side, slotIdx, {});
+          gainCharges(side, i, MARTYR_CHARGES);
+          addLog('t' + t + ': ' + selfPlayer.name + "'s Martyr gives " + MARTYR_CHARGES + ' charges to ' + selfPlayer.units[i].card.name + ' and destroys itself.', 'meta');
+          destroyUnit(side, slotIdx, { martyrPaid: true });
           drainQueue();
         }};
       })
@@ -1340,13 +1352,13 @@
     if (!inst || inst.card.key !== 'ossuary' || inst.targetUid == null) return -1;
     return findUnitSlotByUid(player, inst.targetUid);
   }
-  // A Pallbearer's strikes are dragged down by the dead it carries: -10% of printed power per Grave
-  // Token in its own graveyard, so 10 tokens silence it entirely.
-  function gravePenaltyPower(player, card, power){
-    if (card.key !== 'pallbearer') return power;
+  // The dead a Pallbearer carries drive it on: every Grave Token in its own graveyard shaves 10% off the
+  // gap between its swings, down to PALLBEARER_MIN_COOLDOWN. Every other unit just uses its printed cooldown.
+  function unitCooldown(player, card){
+    if (card.key !== 'pallbearer' || !isFinite(card.cooldown)) return card.cooldown;
     var tokens = countGraveTokens(player);
-    if (!tokens) return power;
-    return Math.max(0, Math.round(power * Math.max(0, 1 - 0.1 * tokens)));
+    if (!tokens) return card.cooldown;
+    return Math.max(PALLBEARER_MIN_COOLDOWN, Math.round(card.cooldown * Math.max(0, 1 - 0.1 * tokens)));
   }
   function countGraveTokens(player){
     return player.grave.filter(function(c){ return c.key === 'gravetoken'; }).length;
@@ -1356,19 +1368,41 @@
     var p = state.players[side];
     var slot = p.continuous[continuousIdx];
     if (!slot || slot.card.key !== 'ossuary') return;
-    var tokenIdx = findGraveTokenIdx(p);
-    if (tokenIdx === -1){ logIdle(side, slot.card.name, state.tick, 'no Grave Token to spend'); return; }
-    var tgt = ossuaryTargetSlot(p, slot);
-    if (tgt === -1){ logIdle(side, slot.card.name, state.tick, 'its target is gone'); return; }
-    return chargeExtortionChoice(side, function(){
+    if (findGraveTokenIdx(p) === -1){
+      addLog('t' + state.tick + ': ' + p.name + "'s Ossuary fizzles — no Grave Token to spend.", 'meta');
+      return;
+    }
+    // A permanent +3, the way Cannibalize hands over HP — it raises the cap, so it is never wasted on a healthy unit.
+    var feed = function(tgt){
+      var tokenIdx = findGraveTokenIdx(p);
+      if (tokenIdx === -1 || !p.units[tgt] || !p.units[tgt].alive) return undefined;
       p.grave.splice(tokenIdx, 1);
-      // A permanent +3, the way Cannibalize hands over HP — it raises the cap, so it is never wasted on a healthy unit.
       var u = p.units[tgt];
       u.maxHp += OSSUARY_HP;
       u.hp += OSSUARY_HP;
       addLog('t' + state.tick + ': ' + p.name + "'s Ossuary feeds " + u.card.name + ' +' + OSSUARY_HP + ' HP (' + u.hp + '/' + u.maxHp + ').', 'heal');
       return undefined;
+    };
+    var tgt = ossuaryTargetSlot(p, slot);
+    if (tgt !== -1) return chargeExtortionChoice(side, function(){ return feed(tgt); });
+
+    // No target picked during setup, or it died: choose one now instead of letting the card sit useless.
+    var living = [];
+    p.units.forEach(function(u, i){ if (u && u.alive) living.push(i); });
+    if (!living.length){ addLog('t' + state.tick + ': ' + p.name + "'s Ossuary fizzles — no living unit to feed.", 'meta'); return; }
+    pauseForChoice({
+      title: 'Ossuary',
+      message: p.name + ', choose the unit your Ossuary feeds. It keeps feeding this unit from now on.',
+      options: living.map(function(i){
+        var lu = p.units[i];
+        return { label: lu.card.name + ' (' + lu.hp + '/' + lu.maxHp + ' HP)', onClick: function(){
+          slot.targetUid = lu.card.uid;
+          var r = chargeExtortionChoice(side, function(){ return feed(i); });
+          if (r !== 'PAUSED') drainQueue();
+        }};
+      })
     });
+    return 'PAUSED';
   }
 
   function resolveBlackBox(side, continuousIdx){
@@ -1403,8 +1437,30 @@
   function unitHasActivation(u){
     return !!(u && u.alive && u.card.activatable && (u.charges || 0) >= (u.card.activateCost || 1));
   }
+  // Ossuary is the only continuous with a player-activated ability: its cost is a Grave Token, and it
+  // needs a live target to feed, so a declaration with neither still on the board fizzles on resolution.
+  function continuousHasActivation(player, cc){
+    if (!cc || cc.card.key !== 'ossuary') return false;
+    if (findGraveTokenIdx(player) === -1) return false;
+    return player.units.some(function(u){ return u && u.alive; });
+  }
+  // Why the Feed button is greyed out, so the card never just looks broken.
+  function continuousBlockedReason(side, idx){
+    var p = state.players[side], cc = p.continuous[idx];
+    if (!cc || cc.card.key !== 'ossuary') return '';
+    if (state.phase !== 'simulating') return 'Only during the battle';
+    if (state.responder !== null && state.responder !== side) return 'Waiting on the other player to respond or pass';
+    if (state.pendingChoice || state.resolvingStack) return 'Finish the current effect first';
+    if (findGraveTokenIdx(p) === -1) return 'No Grave Token in your graveyard to spend';
+    if (!p.units.some(function(u){ return u && u.alive; })) return 'No living unit to feed';
+    return '';
+  }
   function trapHasActivation(tr){
     return !!(tr && (tr.card.manualFire || (tr.card.manualArm && !tr.primed)));
+  }
+  function findContinuousSlotByUid(player, uid){
+    for (var i = 0; i < player.continuous.length; i++){ if (player.continuous[i] && player.continuous[i].card.uid === uid) return i; }
+    return -1;
   }
   function findTrapSlotByUid(player, uid){
     for (var i = 0; i < player.traps.length; i++){ if (player.traps[i] && player.traps[i].card.uid === uid) return i; }
@@ -1421,9 +1477,16 @@
     return mayActivateNow(side) && trapHasActivation(tr) && !isDeclared(tr.card.uid);
   }
 
+  function canActivateContinuous(side, idx){
+    var p = state.players[side];
+    var cc = p.continuous[idx];
+    return mayActivateNow(side) && continuousHasActivation(p, cc) && !isDeclared(cc.card.uid);
+  }
+
   function declareAbility(side, zone, idx){
     var p = state.players[side];
-    var card = (zone === 'unit' ? p.units[idx] : p.traps[idx]).card;
+    var arr = zone === 'unit' ? p.units : zone === 'trap' ? p.traps : p.continuous;
+    var card = arr[idx].card;
     var inResponse = state.stack.length > 0;
     state.stack.push({ side: side, zone: zone, uid: card.uid, name: card.name });
     state.responder = 1 - side;
@@ -1438,6 +1501,10 @@
 
   function activateTrap(side, idx){
     if (canActivateTrap(side, idx)) declareAbility(side, 'trap', idx);
+  }
+
+  function activateContinuous(side, idx){
+    if (canActivateContinuous(side, idx)) declareAbility(side, 'continuous', idx);
   }
 
   function passResponse(){
@@ -1475,6 +1542,11 @@
         case 'gravedigger': return doGravedigger(d.side, idx, u, t);
       }
       return;
+    }
+    if (d.zone === 'continuous'){
+      var cIdx = findContinuousSlotByUid(p, d.uid);
+      if (cIdx === -1 || !continuousHasActivation(p, p.continuous[cIdx])){ fizzle(); return; }
+      return resolveOssuary(d.side, cIdx);
     }
     var tIdx = findTrapSlotByUid(p, d.uid);
     var tr = tIdx === -1 ? null : p.traps[tIdx];
@@ -1709,14 +1781,15 @@
       var parts = ['On ' + p.name + "'s board (slot " + (loc.idx + 1) + ')', 'HP ' + u.hp + '/' + u.maxHp];
       if (u.card.key === 'pallbearer'){
         var tk = countGraveTokens(p);
-        parts.push(tk === 0 ? 'No Grave Tokens — hits for its full ' + u.card.power
-                            : (tk + ' Grave Token(s): -' + (tk * 10) + '% → hits for ' + gravePenaltyPower(p, u.card, u.card.power)));
+        parts.push(tk === 0 ? 'No Grave Tokens — acts every ' + u.card.cooldown + ' ticks'
+                            : (tk + ' Grave Token(s): -' + (tk * 10) + '% → acts every ' + unitCooldown(p, u.card) + ' ticks'));
       }
       if (ins.card.usesCharges) parts.push('Charges ' + (u.charges || 0));
       if (ins.card.activatable) parts.push('Activate manually during battle');
       else if (isFinite(ins.card.cooldown)){
-        parts.push('Acts every ' + ins.card.cooldown + ' ticks');
-        if (state.phase === 'simulating' || state.phase === 'roundEnd') parts.push('Next action in ' + (ins.card.cooldown - (state.tick % ins.card.cooldown)) + ' ticks');
+        var icd = unitCooldown(p, ins.card);
+        parts.push('Acts every ' + icd + ' ticks');
+        if (state.phase === 'simulating' || state.phase === 'roundEnd') parts.push('Next action in ' + (icd - (state.tick % icd)) + ' ticks');
       }
       else if (ins.card.unitType === 'passive') parts.push('Passive — never takes a turn');
       if (ins.card.key === 'bulwark') parts.push(u.taunting ? 'Doubled and taunting — enemy attacks must hit it' : 'Not taunting — it is not alone on your side');
@@ -1740,8 +1813,11 @@
         if (inst.card.key === 'ossuary'){
           var oslot = ossuaryTargetSlot(p, inst);
           return ['Active on ' + p.name + "'s side", countGraveTokens(p) + ' Grave Token(s) in the graveyard',
-                  oslot === -1 ? 'No target — click it during setup to pick one' : ('Feeding ' + p.units[oslot].card.name), 'Acts every 20 ticks'];
+                  oslot === -1 ? 'No target — click it during setup to pick one' : ('Feeding ' + p.units[oslot].card.name),
+                  'Activate it during the battle'];
         }
+        if (inst.card.key === 'vault') return ['Active on ' + p.name + "'s side", 'Holding ' + (inst.charges || 0) + '/' + VAULT_CAP + ' charges',
+                                               'Spent before your units when a trap needs charges'];
         return ['Active on ' + p.name + "'s side", 'Charges ' + (inst.charges || 0) + '/3'];
       }
       if (inst.card.manualArm) return [(inst.primed ? 'Active' : 'Dormant') + ' on ' + p.name + "'s side", inst.primed ? 'Catches the next enemy attack' : 'Activate it during the battle'];
@@ -1830,7 +1906,7 @@
       { tabindex:'0', role:'button', title: card.name + ' — ' + card.effect + (interactive ? ' (double-click to return to hand)' : '') });
     var pct = Math.max(0, u.hp / u.maxHp);
     var lines;
-    if (card.unitType === 'attacker') lines = ['PWR ' + gravePenaltyPower(player, card, card.power), ''];
+    if (card.unitType === 'attacker') lines = ['PWR ' + card.power, ''];
     else if (card.unitType === 'healer') lines = ['HEAL ' + card.heal, ''];
     else if (card.unitType === 'passive') lines = ['PASSIVE', ''];
     else lines = ['SPECIAL', ''];
@@ -1839,8 +1915,9 @@
       var host = u.hostSlot != null ? player.units[u.hostSlot] : null;
       lines[0] = host ? ('→ ' + host.card.name) : 'NO HOST';
     }
-    var chargePct = (state.phase === 'simulating' || state.phase === 'roundEnd' || state.phase === 'gameOver') && isFinite(card.cooldown)
-      ? (state.tick % card.cooldown) / card.cooldown : 0;
+    var liveCd = unitCooldown(player, card);
+    var chargePct = (state.phase === 'simulating' || state.phase === 'roundEnd' || state.phase === 'gameOver') && isFinite(liveCd)
+      ? (state.tick % liveCd) / liveCd : 0;
     var chargeLine = (card.usesCharges || (u.charges || 0) > 0) ? ('<div class="stat mono">⚡' + (u.charges || 0) + '</div>') : '';
     var activatable = canActivate(side, idx);
     if (isDeclared(card.uid)) lines[0] = 'DECLARED';
@@ -1903,10 +1980,16 @@
       var ot = ossuaryTargetSlot(player, inst);
       ossLine = '<div class="stat mono">' + (ot === -1 ? 'NO TARGET' : ('→ ' + player.units[ot].card.name)) + '</div>';
     }
-    var statLine = zone === 'continuous' ? (card.key === 'ossuary' ? ('◌ ' + countGraveTokens(player)) : ('⚡' + (inst.charges || 0) + '/3'))
+    var statLine = zone === 'continuous' ? (card.key === 'ossuary' ? ('◌ ' + countGraveTokens(player))
+        : card.key === 'vault' ? ('⚡' + (inst.charges || 0) + '/' + VAULT_CAP) : ('⚡' + (inst.charges || 0) + '/3'))
       : card.manualArm ? (inst.primed ? 'ACTIVE' : 'DORMANT') : card.manualFire ? 'READY' : 'ARMED';
-    if (zone === 'trap' && isDeclared(card.uid)) statLine = 'DECLARED';
+    if (isDeclared(card.uid)) statLine = 'DECLARED';
     if (zone === 'trap' && canActivateTrap(side, idx)) statLine = '<button class="activate-btn" type="button" title="Activate now: catches the next enemy attack">Activate</button>';
+    if (zone === 'continuous' && card.key === 'ossuary' && state.phase === 'simulating' && !isDeclared(card.uid)){
+      var feedOk = canActivateContinuous(side, idx);
+      var feedWhy = feedOk ? 'Spend a Grave Token to give the target +' + OSSUARY_HP + ' HP' : continuousBlockedReason(side, idx);
+      statLine = '<button class="activate-btn" type="button"' + (feedOk ? '' : ' disabled') + ' title="' + feedWhy + '">Feed</button>';
+    }
     c.innerHTML =
       prioBadge(side, zone, idx) +
       (isNext ? '<div class="next-tag">NEXT</div>' : '') +
@@ -1914,7 +1997,7 @@
       '<div class="name">' + card.name + '</div>' +
       '<div class="stat mono">' + statLine + '</div>' + ossLine;
     var armBtn = c.querySelector('.activate-btn');
-    if (armBtn) armBtn.addEventListener('click', function(e){ e.stopPropagation(); activateTrap(side, idx); });
+    if (armBtn) armBtn.addEventListener('click', function(e){ e.stopPropagation(); (zone === 'trap' ? activateTrap : activateContinuous)(side, idx); });
     c.addEventListener('click', function(){ inspectCard(card, { side: side, zone: zone, idx: idx }); });
     if (interactive){
       c.addEventListener('dblclick', function(){ removePlacedCard(side, zone, idx); });

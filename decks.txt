@@ -33,6 +33,7 @@ Dead Man's Switch x1
 Inheritance x1
 Conduit x1
 Black Box x1
+Vault x1
 Ossuary x1
 
 [Player 2]
@@ -67,4 +68,5 @@ Dead Man's Switch x1
 Inheritance x1
 Conduit x1
 Black Box x1
+Vault x1
 Ossuary x1
