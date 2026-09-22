@@ -1,0 +1,8 @@
+# Deck: aggro
+# One card per line: <card name> x<copies>
+
+Striker x3
+Medic x1
+Mirror Wall x3
+Scavenger x2
+Veteran's Standard x2
