@@ -249,7 +249,7 @@
         var maxed = qty >= MAX_COPIES;
         var row = el('div', 'row-card ' + cardColorClass(card) + (maxed ? ' maxed' : ''), {});
         var sub = card.type === 'unit' ? card.unitType : '';
-        var lines = statLines(card).filter(Boolean);
+        var lines = card.type === 'unit' ? unitStatList(card) : statLines(card).filter(Boolean);
         var pills = lines.map(function(l){ return '<span class="pill-stat mono">' + l + '</span>'; }).join('');
         row.innerHTML =
           '<div class="icon">' + card.icon + '</div>' +

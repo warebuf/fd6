@@ -1,37 +1,37 @@
 // Shared card data + deck helpers for fd6 (index.html game + decks.html builder).
 var CARD_DEFS = {
-  attacker: { key:'attacker', type:'unit', unitType:'attacker', name:'Striker', icon:'⚔', power:10, hp:20, cooldown:20,
-    effect:'Every 20 ticks, hits the nearest enemy unit, or a structure if none remain, for 10.' },
-  healer:   { key:'healer',   type:'unit', unitType:'healer',   name:'Medic',   icon:'✚', heal:10,  hp:15, cooldown:20,
-    effect:'Every 20 ticks, heals whichever own structure or unit is most wounded (by %) for 10.' },
+  attacker: { key:'attacker', type:'unit', unitType:'attacker', name:'Striker', icon:'⚔', ad:10, ap:0,  hp:20, armor:20, mr:10, as:0.5,
+    effect:'Auto-attacks the nearest enemy unit, dealing its AD as physical damage.' },
+  healer:   { key:'healer',   type:'unit', unitType:'healer',   name:'Medic',   icon:'✚', ad:0,  ap:10, hp:15, armor:10, mr:25, as:0.5,
+    effect:'Each action, heals whichever of your units is most wounded (by %) for its AP.' },
   mirror:   { key:'mirror',   type:'trap', manualArm:true,      name:'Mirror Wall', icon:'◈',
     effect:'Dormant until you activate it during the battle. Once active, negates the next enemy attack on your side and destroys the unit that made it.' },
 
-  gravedigger:  { key:'gravedigger',  type:'unit', unitType:'special', name:'Gravedigger',  icon:'Ω', hp:16, cooldown:Infinity, startCharges:1, usesCharges:true, activatable:true,
-    effect:'1 charge. Activate it during the battle: fires once for every card in your graveyard, 4 damage each.' },
-  undertaker:   { key:'undertaker',   type:'unit', unitType:'special', name:'Undertaker',   icon:'⛧', hp:14, cooldown:Infinity, usesCharges:true, activatable:true, activateCost:2,
+  gravedigger:  { key:'gravedigger',  type:'unit', unitType:'special', name:'Gravedigger',  icon:'Ω', ad:0,  ap:4,  hp:16, armor:10, mr:30, as:0, startCharges:1, usesCharges:true, activatable:true,
+    effect:'1 charge. Activate it during the battle: fires once for every card in your graveyard, each dealing its AP as magic damage.' },
+  undertaker:   { key:'undertaker',   type:'unit', unitType:'special', name:'Undertaker',   icon:'⛧', ad:0,  ap:0,  hp:14, armor:15, mr:25, as:0, usesCharges:true, activatable:true, activateCost:2,
     effect:'Gains 1 charge whenever one of your units dies. Activate whenever you like: spend 2 charges to return a unit card from your graveyard to hand.' },
-  predator:     { key:'predator',     type:'unit', unitType:'attacker', name:'Predator',    icon:'♦', power:16, hp:18, cooldown:20,
-    effect:'Powerful attacker (16 power). When it dies, its death throes hit every other unit on your side for 5.' },
-  extortionist: { key:'extortionist', type:'unit', unitType:'passive', name:'Extortionist', icon:'¤', hp:14, cooldown:Infinity,
+  predator:     { key:'predator',     type:'unit', unitType:'attacker', name:'Predator',    icon:'♦', ad:16, ap:0,  hp:18, armor:15, mr:10, as:0.5,
+    effect:'Hard-hitting attacker. When it dies, its death throes hit every other unit on your side for 5 true damage.' },
+  extortionist: { key:'extortionist', type:'unit', unitType:'passive', name:'Extortionist', icon:'¤', ad:0,  ap:0,  hp:14, armor:15, mr:15, as:0,
     effect:'Whenever the opponent activates a trap, continuous, or special ability, choose one of your cards to gain 1 charge.' },
-  bodyguard:    { key:'bodyguard',    type:'unit', unitType:'passive', name:'Bodyguard',    icon:'⛨', hp:22, cooldown:Infinity,
-    effect:'Every attack aimed at another of your units or structures is redirected onto Bodyguard instead, for as long as it lives.' },
-  scavenger:    { key:'scavenger',    type:'unit', unitType:'attacker', name:'Scavenger',   icon:'↻', power:5, hp:15, cooldown:20,
-    effect:'Every 20 ticks, attacks for 5. Whenever any unit dies (either side), may take its unclaimed equip.' },
-  disarmer:     { key:'disarmer',     type:'unit', unitType:'attacker', name:'Disarmer',    icon:'✂', power:8, hp:14, cooldown:20,
-    effect:'Every 20 ticks, attacks for 8. If the target is wearing an equip, destroys that equip instead of dealing damage.' },
-  parasite:     { key:'parasite',     type:'unit', unitType:'special', name:'Parasite',     icon:'☣', hp:8,  cooldown:20, usesCharges:true,
+  bodyguard:    { key:'bodyguard',    type:'unit', unitType:'passive', name:'Bodyguard',    icon:'⛨', ad:0,  ap:0,  hp:22, armor:50, mr:20, as:0,
+    effect:'Every attack aimed at another of your units is redirected onto Bodyguard instead, for as long as it lives.' },
+  scavenger:    { key:'scavenger',    type:'unit', unitType:'attacker', name:'Scavenger',   icon:'↻', ad:5,  ap:0,  hp:15, armor:15, mr:15, as:0.5,
+    effect:'Auto-attacks for its AD as physical damage. Whenever any unit dies (either side), may take its unclaimed equip.' },
+  disarmer:     { key:'disarmer',     type:'unit', unitType:'attacker', name:'Disarmer',    icon:'✂', ad:8,  ap:0,  hp:14, armor:15, mr:15, as:0.5,
+    effect:'Auto-attacks for its AD as physical damage. If the target is wearing an equip, destroys that equip instead of dealing damage.' },
+  parasite:     { key:'parasite',     type:'unit', unitType:'special', name:'Parasite',     icon:'☣', ad:0,  ap:0,  hp:8,  armor:5,  mr:5,  as:0.5, usesCharges:true,
     effect:'Choose one of your other units as its host when placed. Mirrors every charge the host gains from then on.' },
-  martyr:       { key:'martyr',       type:'unit', unitType:'special', name:'Martyr',      icon:'✟', hp:12, cooldown:Infinity, startCharges:1, usesCharges:true, activatable:true,
+  martyr:       { key:'martyr',       type:'unit', unitType:'special', name:'Martyr',      icon:'✟', ad:0,  ap:0,  hp:12, armor:10, mr:30, as:0, startCharges:1, usesCharges:true, activatable:true,
     effect:'1 charge. Activate it during the battle: give a target unit 3 charges, then Martyr destroys itself. If it is killed instead, it still passes 3 charges on.' },
-  loadedgun:    { key:'loadedgun',    type:'unit', unitType:'special', name:'Loaded Gun',   icon:'☍', hp:10, cooldown:Infinity, startCharges:3, usesCharges:true, activatable:true,
-    effect:'3 charges. Fire it yourself at any point during the battle: spends 1 charge to deal 2 damage. Destroys itself at 0 charges.' },
-  bulwark:      { key:'bulwark',      type:'unit', unitType:'passive', name:'Bulwark',      icon:'⛊', hp:16, cooldown:Infinity,
+  loadedgun:    { key:'loadedgun',    type:'unit', unitType:'special', name:'Loaded Gun',   icon:'☍', ad:0,  ap:2,  hp:10, armor:10, mr:10, as:0, startCharges:3, usesCharges:true, activatable:true,
+    effect:'3 charges. Fire it yourself at any point during the battle: spends 1 charge to deal its AP as magic damage. Destroys itself at 0 charges.' },
+  bulwark:      { key:'bulwark',      type:'unit', unitType:'passive', name:'Bulwark',      icon:'⛊', ad:0,  ap:0,  hp:16, armor:40, mr:40, as:0,
     effect:'When the battle begins, if Bulwark is the only unit on your side, it doubles its HP and taunts — every enemy attack must target it while it lives.' },
-  pallbearer:   { key:'pallbearer',   type:'unit', unitType:'attacker', name:'Pallbearer',  icon:'⛓', power:5, hp:16, cooldown:20,
-    effect:'Every 20 ticks, attacks for 5 — and every Grave Token in your graveyard cuts 10% off the ticks between its attacks, to a floor of 5.' },
-  mimic:        { key:'mimic',        type:'unit', unitType:'special', name:'Mimic',        icon:'❖', hp:12, cooldown:20, startCharges:1, usesCharges:true,
+  pallbearer:   { key:'pallbearer',   type:'unit', unitType:'attacker', name:'Pallbearer',  icon:'⛓', ad:5,  ap:0,  hp:16, armor:20, mr:15, as:0.5,
+    effect:'Auto-attacks for its AD as physical damage — and every Grave Token in your graveyard cuts 10% off the time between its attacks, to a floor of 5 ticks.' },
+  mimic:        { key:'mimic',        type:'unit', unitType:'special', name:'Mimic',        icon:'❖', ad:0,  ap:0,  hp:12, armor:15, mr:15, as:0.5, startCharges:1, usesCharges:true,
     effect:"1 charge. Spend it to copy and immediately use another of your unit's action." },
 
   donation:          { key:'donation',          type:'trap', manualFire:true, name:'Donation',    icon:'☞',
@@ -54,7 +54,7 @@ var CARD_DEFS = {
   deathless:       { key:'deathless',       type:'equip', name:'Deathless',           icon:'♞',
     effect:'Equip. Destroys itself instead of letting the equipped unit die, once.' },
   veteranstandard: { key:'veteranstandard', type:'equip', name:"Veteran's Standard",  icon:'⚑',
-    effect:"Equip. Equipped unit's attacks gain +1 power for every unit you've summoned this game." },
+    effect:"Equip. Equipped unit gains +1 AD for every unit you've summoned this game." },
   battery:         { key:'battery',         type:'equip', name:'Battery',             icon:'⎔',
     effect:"Equip. Stores up to 3 of the equipped unit's charges; on death, dumps them into another unit." },
   deadmanswitch:   { key:'deadmanswitch',   type:'equip', name:"Dead Man's Switch",   icon:'☢',
@@ -73,6 +73,19 @@ var CARD_DEFS = {
   blackbox: { key:'blackbox', type:'continuous', name:'Black Box', icon:'▣',
     effect:'Continuous. Gains a charge whenever one of your cards dies. At 3 charges, replays your last attack or heal.' }
 };
+
+// League-style unit stats:
+//   hp     health
+//   ad     attack damage — auto-attacks deal this as physical damage
+//   ap     ability power — scales heals and abilities, which deal magic damage
+//   armor  reduces physical damage, mr (magic resist) reduces magic damage: taken = dmg × 100 / (100 + resist)
+//   as     attack speed — actions per second, one second being TICKS_PER_SECOND ticks (0 = never acts on its own)
+// The tick scheduler still works in cooldowns, so each unit's cooldown is derived from its attack speed.
+var TICKS_PER_SECOND = 10;
+Object.keys(CARD_DEFS).forEach(function(k){
+  var c = CARD_DEFS[k];
+  if (c.type === 'unit') c.cooldown = c.as > 0 ? Math.round(TICKS_PER_SECOND / c.as) : Infinity;
+});
 
 // Tokens are created during play, never drawn — kept out of CARD_DEFS so they can't be put in a deck.
 var TOKEN_DEFS = {
@@ -127,10 +140,17 @@ function statLines(card){
   if (card.type === 'equip') return ['EQUIP', ''];
   if (card.type === 'continuous') return ['FIELD', ''];
   if (card.type === 'trap') return ['TRAP', '1-USE'];
-  if (card.unitType === 'attacker') return ['PWR ' + card.power, 'HP ' + card.hp];
-  if (card.unitType === 'healer') return ['HEAL ' + card.heal, 'HP ' + card.hp];
+  if (card.unitType === 'attacker') return ['AD ' + card.ad, 'HP ' + card.hp];
+  if (card.unitType === 'healer') return ['AP ' + card.ap, 'HP ' + card.hp];
   if (card.unitType === 'passive') return ['PASSIVE', 'HP ' + card.hp];
   return ['SPECIAL', 'HP ' + card.hp];
+}
+
+// The full stat block, e.g. ['HP 20', 'AD 10', 'AP 0', 'ARM 20', 'MR 10', 'AS 0.50'].
+function unitStatList(card){
+  if (card.type !== 'unit') return [];
+  return ['HP ' + card.hp, 'AD ' + card.ad, 'AP ' + card.ap, 'ARM ' + card.armor, 'MR ' + card.mr,
+          'AS ' + (card.as > 0 ? card.as.toFixed(2) : '—')];
 }
 
 function cardTypeLabel(card){
@@ -146,13 +166,10 @@ function cardTypeLabel(card){
 
 // Static card details for the "Card Info" inspector panel (title, stat chips, effect text).
 function inspectorCardHtml(card){
-  var stats = [];
-  if (card.power != null) stats.push('PWR ' + card.power);
-  if (card.heal != null) stats.push('HEAL ' + card.heal);
-  if (card.hp != null) stats.push('HP ' + card.hp);
+  var stats = unitStatList(card);
   if (card.startCharges != null) stats.push('Starts with ' + card.startCharges + ' charge' + (card.startCharges === 1 ? '' : 's'));
   else if (card.usesCharges) stats.push('Uses charges');
-  if (isFinite(card.cooldown) && card.type === 'unit') stats.push('Every ' + card.cooldown + ' ticks');
+  if (isFinite(card.cooldown) && card.type === 'unit') stats.push('Acts every ' + card.cooldown + ' ticks');
   var html =
     '<div class="inspector-title"><div class="inspector-icon">' + card.icon + '</div>' +
     '<div><div class="inspector-name">' + card.name + '</div><div class="inspector-type">' + cardTypeLabel(card) + '</div></div></div>';
@@ -170,7 +187,7 @@ function inspectorCardHtml(card){
 //   ...
 // Card names are matched case-insensitively (card keys work too). Lines starting with # are comments.
 function decksToText(recipes){
-  var lines = ['# Structure Siege decks', '# One card per line: <card name> x<copies>', ''];
+  var lines = ['# fd6 decks', '# One card per line: <card name> x<copies>', ''];
   recipes.forEach(function(recipe, side){
     lines.push('[Player ' + (side + 1) + ']');
     Object.keys(CARD_DEFS).forEach(function(k){ if (recipe[k] > 0) lines.push(CARD_DEFS[k].name + ' x' + recipe[k]); });
